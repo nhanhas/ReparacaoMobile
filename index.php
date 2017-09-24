@@ -66,6 +66,9 @@
 	/******************************
 	 ***   WSDL Call Functions  ***
 	 ******************************/
+	//Call WSDL to get Products within order
+	function WSDL_GetProductsFromOrderId($orderId){} 
+	 
 	//Call WSDL to get Orders Between a month
 	function WSDL_GetOrderFromDate(){
 		//First day of month
