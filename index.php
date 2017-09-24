@@ -37,6 +37,17 @@
 		exit(1);
 	}
 	
+	//get product by ref / id 
+	$product = DRIVE_getProductByRefOrId("100192", "1");
+	print_r($product);
+	exit(1);
+	
+	//get customer by ncont / id 
+	$customer = DRIVE_getCustomerByNcontOrId("123456789", "1");
+	print_r($customer);
+	exit(1);
+
+	
 	//get order by id 
 	$order = DRIVE_getOrderById("1");
 	print_r($order);
@@ -123,7 +134,91 @@
 	
 	/******************************
 	 *** DriveFX Call Functions ***
-	 ******************************/	 	 
+	 ******************************/	
+	//Call Drive to return a product by ref(sku) or Id
+	function DRIVE_getProductByRefOrId($ref, $id){
+		global $ch;
+		 
+		// #1 - get Order By Id
+    	$url = backendUrl . '/SearchWS/QueryAsEntities';
+    	$params =  array('itemQuery' => '{
+    									  "entityName": "St",
+    									  "distinct": false,
+    									  "lazyLoaded": false,
+    									  "SelectItems": [],
+    									  "filterItems": [
+    									  	{
+    									      "filterItem": "ref",
+    									      "valueItem": "'. $ref .'",
+    									      "comparison": 0,
+    									      "groupItem": 9
+    									    },
+    									    {
+    									      "filterItem": "obs",
+    									      "valueItem": "'. $id .'",
+    									      "comparison": 0,
+    									      "groupItem": 9
+    									    }
+    									  ],
+    									  "orderByItems": [],
+    									  "JoinEntities": [],
+    									  "groupByItems": []
+    									}');
+    									
+    	$response=DRIVE_Request($ch, $url, $params);
+    	
+    	if(empty($response)){
+    		return false;
+    	} else if(count($response['result']) == 0 ){
+    		return null;
+    	}
+        
+        return $response['result'][0];		 
+		 
+	}
+	 
+	//Call Drive to return an order by observation Id
+	function DRIVE_getCustomerByNcontOrId($ncont, $id){
+		global $ch;
+		 
+		// #1 - get Order By Id
+    	$url = backendUrl . '/SearchWS/QueryAsEntities';
+    	$params =  array('itemQuery' => '{
+    									  "entityName": "Cl",
+    									  "distinct": false,
+    									  "lazyLoaded": false,
+    									  "SelectItems": [],
+    									  "filterItems": [
+    									  	{
+    									      "filterItem": "ncont",
+    									      "valueItem": "'. $ncont .'",
+    									      "comparison": 0,
+    									      "groupItem": 9
+    									    },
+    									    {
+    									      "filterItem": "obs",
+    									      "valueItem": "'. $id .'",
+    									      "comparison": 0,
+    									      "groupItem": 9
+    									    }
+    									  ],
+    									  "orderByItems": [],
+    									  "JoinEntities": [],
+    									  "groupByItems": []
+    									}');
+    									
+    	$response=DRIVE_Request($ch, $url, $params);
+    	
+    	if(empty($response)){
+    		return false;
+    	} else if(count($response['result']) == 0 ){
+    		return null;
+    	}
+        
+        return $response['result'][0];		 
+		 
+	}
+	  	 
 	 //Call Drive to return an order by observation Id
 	 function DRIVE_getOrderById($obsId){
 		global $ch;
