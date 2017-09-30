@@ -128,16 +128,27 @@
 			$customer = WSDL_GetUserInfoFromOrderId($order->id);
 			$customerDrive = processCustomer($customer);//then process it
 			if($customerDrive == null){
-				$msg = "Error on sync Order with Id=".$order->id." .<br><br>";
+				$msg = "Error on sync Order with Id=".$order->id." - Error in customer .<br><br>";
 				echo $msg;
 				logData($msg);
 				continue;
 			}
 
 			//At this point means that we have customer, now sync product
+			$orderProducts = WSDL_GetProductsFromOrderId($order->id);
+			$driveProducts = processProducts($orderProducts);
+			if($driveProducts == null){
+				$msg = "Error on sync Order with Id=".$order->id." - Error in products.<br><br>";
+				echo $msg;
+				logData($msg);
+				continue;
+			}
 
-			echo "HERE<br>";
-			print_r($customerDrive);
+			print_r(json_encode($driveProducts,true));
+
+
+
+			echo "<br>END<br>";
 			echo "<br><br><br>";
 
 		}
@@ -145,6 +156,97 @@
 
 	
 	//#B - Minor functions
+
+	function processProducts($productsList){
+		if(empty($productsList)){
+			$msg = "No products to process.<br><br>";
+			echo $msg;
+			logData($msg);
+			return null;
+		}
+
+		$driveProducts = array();
+		//Iterate products to create
+		foreach ($productsList as $product) {
+			
+			#1 - check if it is already created @Drive
+			$driveProduct = DRIVE_getProductByRefOrId($product->order_item_sku, $product->product_id);
+			if($driveProduct != null){
+				//if exists add to list and proceed to next one
+				$driveProducts[] = array(
+					"ref" => $driveProduct['ref'],
+					"qtt" => $product->product_quantity,
+					"ivaincl" => false,
+					"epv" => $product->product_item_price
+				); 
+				continue;
+			}
+
+			//At this point means that we need to create a new product
+
+			//#2 - Create the product
+			$newInstanceSt = createProduct($product);
+			if($newInstanceSt == null){
+				//if goes on error, stop immidiatly
+				return null;
+			}
+
+			//#3 - Add to final Drive Products array 
+			$driveProducts[] = array(
+					"ref" => $newInstanceSt['ref'],
+					"qtt" => $product->product_quantity,
+					"ivaincl" => false,
+					"epv" => $product->product_item_price
+				); 
+		}
+
+		return $driveProducts;
+
+	}
+
+	//Just to Create a Product with all data needed
+	function createProduct($product){
+		//#1 - get New Instance
+		$newInstanceSt = DRIVE_getNewInstance("St", 0);
+		if($newInstanceSt == null){
+			$msg = "Error on getting new instance ST. <br><br>";
+			echo $msg;
+			logData($msg);
+			return null;
+		}
+
+		//#2 - fulfill properties
+		$newInstanceSt['ref'] = $product->order_item_sku;
+		$newInstanceSt['design'] = $product->order_item_name;
+		$newInstanceSt['epv1'] = $product->product_item_price;
+		
+		$newInstanceSt['obs'] = $product->product_id;//obs will be the product id from store
+
+		
+		//#2 - an sync entity
+		$newInstanceSt = DRIVE_actEntiy("St", $newInstanceSt);
+		if($newInstanceSt == null){
+			$msg = "Error on act entity for product name = " .$product->order_item_name . " <br><br>";
+			echo $msg;
+			logData($msg);
+			return null;
+		}
+
+		//#3 - Save product
+		$newInstanceSt = DRIVE_saveInstance("St", $newInstanceSt);
+		if($newInstanceSt == null){
+			$msg = "Error on save for product name = " .$product->order_item_name . " <br><br>";
+			echo $msg;
+			logData($msg);
+			return null;
+		}
+
+		$msg = "Product created with ref = " .$newInstanceSt['ref']. " <br><br>";
+		echo $msg;
+		logData($msg);
+		return $newInstanceSt;
+	}
+
 
 	//Treat all things to customer - get/create
 	function processCustomer($customer){
@@ -261,9 +363,14 @@
 		//#4 - Make the call
 		$orderProducts = array($client->GetProductsFromOrderId($params));
 		
+
 		//#5 - Treat Result
 		$orderProducts = $orderProducts[0]->OrderItemInfo;
 		
+		if(is_object($orderProducts)){
+			$orderProducts= array($orderProducts);
+		}
+
 		//#6 - Return Result
 		return $orderProducts;
 	} 
@@ -296,6 +403,10 @@
 		
 		//#5 - Treat Result
 		$orderArray = $orderArray[0]->Order;
+
+		if(is_object($orderArray)){
+			$orderArray= array($orderArray);
+		}
 		
 		//#6 - Return Result
 		return $orderArray;
@@ -378,6 +489,8 @@
 			return null;
 		}
 		if(isset($response['messages'][0]['messageCodeLocale'])){
+			$msg = $response['messages'][0]['messageCodeLocale'];
+			logData($msg);
 			return null;
 		}
 		
