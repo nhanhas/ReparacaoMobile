@@ -1,7 +1,9 @@
 <?php
+	error_reporting(E_ERROR | E_PARSE);
 	//Define SOAP Settings
 	define("SOAP_BASE", "http://www.reparacaomobile.pt/administrator/components/com_vm_soa/services");
-	define("SYNC_FROM_DATE", date("Y-m-29 00:00:00"));
+	define("SYNC_FROM_DATE", date("Y-9-28 00:00:s"));//day 1 of the month date("Y-m-1 00:00:00")
+	define("SYNC_TO_DATE", date("Y-9-28 23:30:s")); //today date("Y-m-d H:i:s")
 		
 	//Build a Session Credentials, to use in all requests
 	$_SESSION['loginInfo'] = array(
@@ -13,6 +15,7 @@
 	
 	
 	//Define DriveFX settings
+	define("orderNdoc", 1);
 	define("backendUrl", "https://sis05.drivefx.net/c2b337a9/PHCWS/REST");
 	$_SESSION['driveCredentials'] = array(
 		userCode=>"admin",
@@ -21,18 +24,18 @@
 		company=>""
 	);
 	
-	define("orderNdoc", 1);
-	
+		
 	//set as global Call HEADER for Drive fX
 	$ch = curl_init();
 	
 	//WSDL Reference : http://www.virtuemart-datamanager.com/soap/VM2_SOAP_DOC.html#WS-VM_Product
 	//Drive FX : https://sis05.drivefx.net/c2b337a9/html/
 
-	error_reporting(E_ERROR | E_PARSE);
+	
 
-
-	print_r("Starting Sync...<br>");
+	$msg = "Starting Sync...<br>";
+	echo $msg;
+	logData($msg);
 
 	//First Login at Drive
 	$loginResult = DRIVE_userLogin();
@@ -135,6 +138,7 @@
 			}
 
 			//At this point means that we have customer, now sync product
+			
 			$orderProducts = WSDL_GetProductsFromOrderId($order->id);
 			$driveProducts = processProducts($orderProducts);
 			if($driveProducts == null){
@@ -144,8 +148,23 @@
 				continue;
 			}
 
-			print_r(json_encode($driveProducts,true));
+			
+			//At this point means that we have all (customer and products) to create an order 
 
+			//#5 - Generate a new Order, we send to func $customer=shop customer, because consumidor final
+			$newOrderDrive = createOrder($order, $customer, $customerDrive, $driveProducts);
+			if($newOrderDrive == null){
+				$msg = "Error on sync Order with Id=".$order->id." - Error in save order.<br><br>";
+				echo $msg;
+				logData($msg);
+				continue;
+			}
+
+			//At this point the Order has been synchronized
+
+			$msg = "Order with Id=".$order->id." - synched with SUCCESS.<br><br>";
+			echo $msg;
+			logData($msg);
 
 
 			echo "<br>END<br>";
@@ -156,6 +175,104 @@
 
 	
 	//#B - Minor functions
+
+	function createOrder($order, $shopCustomer, $customerDrive, $driveProducts){
+		//#1 - Get an order new instance
+		$newInstanceBo = DRIVE_getNewInstance("Bo", orderNdoc);
+		if($newInstanceBo == null){
+			$msg = "Error on getting new instance Bo. <br><br>";
+			echo $msg;
+			logData($msg);
+			return null;
+		}
+
+		//#2 - Add customer no to order
+		$newInstanceBo['no'] = $customerDrive['no'];
+
+		//#2.1 - Then sync
+		$newInstanceBo = DRIVE_actEntiy("Bo", $newInstanceBo);
+		if($newInstanceBo == null){
+			$msg = "Error on act entity for Order. <br><br>";
+			echo $msg;
+			logData($msg);
+			return null;
+		}
+
+		//#2.2 - Use the order customer billing info
+		$shopCustomerName = $shopCustomer->first_name . " " . $shopCustomer->last_name;
+
+		$newInstanceBo['nome2'] = $customerDrive['clivd'] == true ? $shopCustomerName : '';//only if is generic
+		$newInstanceBo['morada'] = !empty($shopCustomer->address_1) ? $shopCustomer->address_1 : $shopCustomer->address_2;
+		$newInstanceBo['local'] = $shopCustomer->city;
+		$newInstanceBo['codpost'] = $shopCustomer->zip;
+		$newInstanceBo['telefone'] = empty($shopCustomer->phone_1) ? $shopCustomer->phone_1 : $shopCustomer->phone_2;
+
+		//#2.3 - Then sync
+		$newInstanceBo = DRIVE_actEntiy("Bo", $newInstanceBo);
+		if($newInstanceBo == null){
+			$msg = "Error on act entity for Order. <br><br>";
+			echo $msg;
+			logData($msg);
+			return null;
+		}
+
+		//#3 - Now add products (they already have all needed, just join then to Bis)
+		$newInstanceBo['bis'] = $driveProducts;
+
+		//#3.1 - Then sync
+		$newInstanceBo = DRIVE_actEntiy("Bo", $newInstanceBo);
+		if($newInstanceBo == null){
+			$msg = "Error on act entity for Order. <br><br>";
+			echo $msg;
+			logData($msg);
+			return null;
+		}
+
+		//#3.2 - Add shipping
+		if($order->order_shipment > 0){
+			$shippingBi = array(
+				"design" => "Shipping fee",
+				"qtt" => 1,
+				"ivaincl" => false,
+				"edebito" => $order->order_shipment
+			);
+			$newInstanceBo['bis'][] = $shippingBi;
+		}
+
+		//#3.3 - Add payment
+		if($order->order_payment > 0){
+			$paymentBi = array(
+				"design" => "Payment fee",
+				"qtt" => 1,
+				"ivaincl" => false,
+				"edebito" => $order->order_payment
+			);
+			$newInstanceBo['bis'][] = $paymentBi;
+		}
+
+		//#3.4 - Then sync
+		$newInstanceBo = DRIVE_actEntiy("Bo", $newInstanceBo);
+		if($newInstanceBo == null){
+			$msg = "Error on act entity for Order. <br><br>";
+			echo $msg;
+			logData($msg);
+			return null;
+		}
+
+		//Set ID in Bo.obs
+		$newInstanceBo['obs'] = $order->id;
+
+		//#4 - Save Order
+		$newInstanceBo = DRIVE_saveInstance("Bo", $newInstanceBo);
+		if($newInstanceBo == null){
+			$msg = "Error on save entity for Order. <br><br>";
+			echo $msg;
+			logData($msg);
+			return null;
+		}
+
+		return $newInstanceBo;
+	}
 
 	function processProducts($productsList){
 		if(empty($productsList)){
@@ -175,9 +292,10 @@
 				//if exists add to list and proceed to next one
 				$driveProducts[] = array(
 					"ref" => $driveProduct['ref'],
+					"design" => $product->order_item_name,
 					"qtt" => $product->product_quantity,
 					"ivaincl" => false,
-					"epv" => $product->product_item_price
+					"edebito" => $product->product_item_price
 				); 
 				continue;
 			}
@@ -194,14 +312,14 @@
 			//#3 - Add to final Drive Products array 
 			$driveProducts[] = array(
 					"ref" => $newInstanceSt['ref'],
+					"design" => $product->order_item_name,
 					"qtt" => $product->product_quantity,
 					"ivaincl" => false,
-					"epv" => $product->product_item_price
+					"edebito" => $product->product_item_price
 				); 
 		}
 
 		return $driveProducts;
-
 	}
 
 	//Just to Create a Product with all data needed
@@ -282,7 +400,7 @@
 		//#2 - fulfill properties
 		$newInstanceCl['nome'] = $customer->first_name . " " . $customer->last_name;
 		$newInstanceCl['email'] = $customer->email;
-		$newInstanceCl['morada'] = $customer->address_1;
+		$newInstanceCl['morada'] = !empty($customer->address_1) ? $customer->address_1 : $customer->address_2;
 		$newInstanceCl['local'] = $customer->city;
 		$newInstanceCl['codpost'] = $customer->zip;
 
@@ -312,7 +430,6 @@
 		echo $msg;
 		logData($msg);
 		return $newInstanceCl;
-
 	}
 	
 	
@@ -379,10 +496,10 @@
 	//Call WSDL to get Orders Between a month
 	function WSDL_GetOrderFromDate(){
 		//First day of month
-		$date_start = date("Y-9-28 20:20:s");//SYNC_FROM_DATE;
+		$date_start = SYNC_FROM_DATE;
 		
 		//To the present
-		$date_end= date("Y-9-28 23:30:s");//date("Y-m-d H:i:s");
+		$date_end= SYNC_TO_DATE;
 		
 		//#1 - set Login info
 		$loginInfo = $_SESSION['loginInfo'];
@@ -714,7 +831,7 @@
     	return true;
 	 }
 	
-	//Generic function to get all records from an entity
+	//Generic function to get all records from an entity (used for Country, Tax and Isemption) 
 	function DRIVE_getAllRecordList($entityName){
 
 		global $ch;
