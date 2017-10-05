@@ -55,12 +55,23 @@
 		exit(1);
   	}	  
 
-	//#A - Start Syncing Orders
-	//syncOrders();
+  	/* Read from GET to check if it is to 
+  	 * run sync #A or #A.1
+	 */
+  	$orderId = 0;
+  	if(isset($_GET["id"])){
+  		$orderId = intval($_GET["id"]);
+  		print_r("Running single order sync... <br>");
+  	}
 
-	//#A.2 - Sync a sinlge order by order_id
-	//syncSingleOrder(3555);
-
+  	if($orderId == 0){
+		//#A - Start Syncing Orders
+		syncOrders();
+	}else{
+		//#A.2 - Sync a sinlge order by order_id
+		syncSingleOrder(3555);
+	}
+	
 	//TESTS--
 	/*
 
