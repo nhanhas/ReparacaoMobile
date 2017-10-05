@@ -56,10 +56,12 @@
   	}	  
 
 	//#A - Start Syncing Orders
-	syncOrders();
+	//syncOrders();
+
+	//#A.2 - Sync a sinlge order by order_id
+	//syncSingleOrder(3555);
 
 	//TESTS--
-
 	/*
 
 		$customer = WSDL_GetUserInfoFromOrderId(3559);
@@ -173,6 +175,73 @@
 		}
 	}
 
+	//#A.2 - Secondary, sync a single order (use #A or #A.2, exclusivity)
+	function syncSingleOrder($orderId){
+		//#1 - Get order by Id from store
+		$order = WSDL_GetOrder($orderId);
+		if (empty((array) $order)){
+			$msg =  "Error on getting Order by id = ".$orderId." <br>";
+			logData($msg);
+			echo $msg;
+			exit(1);
+	  	}	
+
+		//#3 - Get order @Drive by BO.obs = order_id
+		if(DRIVE_getOrderById($order->id) != null){
+			$msg = "Order with Id=".$order->id." already synched.<br><br>";
+			echo $msg;
+			logData($msg);
+			exit(1);
+		}
+
+		//At this point means that order is not yet synched	
+		$msg = "Order with Id=".$order->id." starting to sync... .<br><br>";
+		echo $msg;
+		logData($msg);
+
+		//#4 - Get customer from Store
+		$customer = WSDL_GetUserInfoFromOrderId($order->id);
+		$customerDrive = processCustomer($customer);//then process it
+		if($customerDrive == null){
+			$msg = "Error on sync Order with Id=".$order->id." - Error in customer .<br><br>";
+			echo $msg;
+			logData($msg);
+			exit(1);
+		}
+
+		//At this point means that we have customer, now sync product
+		
+		$orderProducts = WSDL_GetProductsFromOrderId($order->id);
+		$driveProducts = processProducts($orderProducts);
+		if($driveProducts == null){
+			$msg = "Error on sync Order with Id=".$order->id." - Error in products.<br><br>";
+			echo $msg;
+			logData($msg);
+			exit(1);
+		}
+
+		
+		//At this point means that we have all (customer and products) to create an order 
+
+		//#5 - Generate a new Order, we send to func $customer=shop customer, because consumidor final
+		$newOrderDrive = createOrder($order, $customer, $customerDrive, $driveProducts);
+		if($newOrderDrive == null){
+			$msg = "Error on sync Order with Id=".$order->id." - Error in save order.<br><br>";
+			echo $msg;
+			logData($msg);
+			exit(1);
+		}
+
+		//At this point the Order has been synchronized
+
+		$msg = "Order with Id=".$order->id." - synched with SUCCESS.<br><br>";
+		echo $msg;
+		logData($msg);
+
+
+		echo "<br>END<br>";
+		echo "<br><br><br>";	
+	}
 	
 	//#B - Minor functions
 
@@ -491,7 +560,33 @@
 		//#6 - Return Result
 		return $orderProducts;
 	} 
-	 
+	
+	//Call WSDL to get a single Order by Id
+	function WSDL_GetOrder($orderId){
+		//#1 - set Login info
+		$loginInfo = $_SESSION['loginInfo'];
+
+		//#2 - Build params 
+		$params = array(
+			loginInfo=>$loginInfo,
+			order_id=>$orderId,
+			order_number=>"",
+			limite_start=>"",
+			limite_end=>""		
+		);
+
+		//#3 - Setup Connection SOAP
+		$client = new SoapClient(SOAP_BASE . "/VM_OrderWSDL.php");
+
+		//#4 - Make the call
+		$order = array($client->GetOrder($params));
+		
+		//#5 - Treat Result
+		$order = $order[0];
+		
+		//#6 - Return Result
+		return $order;
+	} 	 
 
 	//Call WSDL to get Orders Between a month
 	function WSDL_GetOrderFromDate(){
