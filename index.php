@@ -69,7 +69,7 @@
 		syncOrders();
 	}else{
 		//#A.2 - Sync a sinlge order by order_id
-		syncSingleOrder(3555);
+		syncSingleOrder($orderId);
 	}
 	
 	//TESTS--
@@ -449,12 +449,11 @@
 	//Treat all things to customer - get/create
 	function processCustomer($customer){
 		//#1 - check if it already exists in Drive
-		//TODO send nif to search
-		$driveCustomer = DRIVE_getCustomerByNcontOrId("NO NIF YET", $customer->user_id);
+		$driveCustomer = DRIVE_getCustomerByNcontOrId($customer->nif);
 		if($driveCustomer != null){			
 			return $driveCustomer;
 		}
-
+			
 		//At this point means that we need to create
 		$newInstanceCl = createCustomer($customer);		
 		if($newInstanceCl == null){
@@ -468,6 +467,23 @@
 
 	//Just to Create a customer with all data needed
 	function createCustomer($customer){
+		global $countryList;		
+		
+		//aux function  
+		$_getPaisstampByPnCont = function($pncont)
+		{	
+			global $countryList;
+			 foreach ($countryList as $country) {
+				 if($country['pncont']===$pncont){
+					 return $country;
+				 }
+				 
+			 }
+			 return null;
+			
+		}; 
+		
+		
 		//#1 - get New Instance
 		$newInstanceCl = DRIVE_getNewInstance("Cl", 0);
 		if($newInstanceCl == null){
@@ -483,7 +499,15 @@
 		$newInstanceCl['morada'] = !empty($customer->address_1) ? $customer->address_1 : $customer->address_2;
 		$newInstanceCl['local'] = $customer->city;
 		$newInstanceCl['codpost'] = $customer->zip;
-
+		$newInstanceCl['ncont'] = $customer->nif;
+		
+		$country = $_getPaisstampByPnCont($customer->code);
+		if(!empty($country)){
+			$newInstanceCl['pncont'] = $customer->code;
+			$newInstanceCl['paisesstamp'] = $country['paisesstamp'];
+			$newInstanceCl['pais'] = $country['nome'];
+		}
+		
 		$newInstanceCl['obs'] = $customer->user_id;//obs will be the customer id from store
 
 		$newInstanceCl['tlmvl'] = !empty($customer->phone_1) ? $customer->phone_1 : $customer->phone_2;
@@ -519,7 +543,23 @@
 	 ******************************/
 	//Call WSDL to get Products within order
 	function WSDL_GetUserInfoFromOrderId($orderId){
-		//#1 - set Login info
+		$callRequest = curl_init(); 
+
+        // set url 
+        curl_setopt($callRequest, CURLOPT_URL, "http://www.reparacaomobile.pt/sincronizer/getUserOrder.php?order_id=".$orderId); 
+
+        //return the transfer as a string 
+        curl_setopt($callRequest, CURLOPT_RETURNTRANSFER, 1); 
+
+        // $output contains the output string 
+        $customer = curl_exec($callRequest); 
+
+        // close curl resource to free up system resources 
+        curl_close($callRequest); 
+		
+		return json_decode($customer);
+		
+		/*//#1 - set Login info
 		$loginInfo = $_SESSION['loginInfo'];
 
 		//#2 - Build params 
@@ -538,7 +578,7 @@
 		$customer = $customer[0]->User;
 		
 		//#6 - Return Result
-		return $customer;
+		return $customer;*/
 	} 
 
 
@@ -799,50 +839,25 @@
 		// #1 - get Order By Id
     	$url = backendUrl . '/SearchWS/QueryAsEntities';
 
-		if($id == 0){
-			//means that we want generic customer
-			$params =  array('itemQuery' => '{
-    									  "entityName": "Cl",
-    									  "distinct": false,
-    									  "lazyLoaded": false,
-    									  "SelectItems": [],
-    									  "filterItems": [
-    									  	{
-    									      "filterItem": "clivd",
-    									      "valueItem": true,
-    									      "comparison": 0,
-    									      "groupItem": 1
-    									    }
-    									  ],
-    									  "orderByItems": [],
-    									  "JoinEntities": [],
-    									  "groupByItems": []
-    									}');
-		}else{
-			$params =  array('itemQuery' => '{
-    									  "entityName": "Cl",
-    									  "distinct": false,
-    									  "lazyLoaded": false,
-    									  "SelectItems": [],
-    									  "filterItems": [
-    									  	{
-    									      "filterItem": "ncont",
-    									      "valueItem": "'. $ncont .'",
-    									      "comparison": 0,
-    									      "groupItem": 9
-    									    },
-    									    {
-    									      "filterItem": "obs",
-    									      "valueItem": "'. $id .'",
-    									      "comparison": 0,
-    									      "groupItem": 9
-    									    }
-    									  ],
-    									  "orderByItems": [],
-    									  "JoinEntities": [],
-    									  "groupByItems": []
-    									}');
-		}
+		
+		$params =  array('itemQuery' => '{
+									  "entityName": "Cl",
+									  "distinct": false,
+									  "lazyLoaded": false,
+									  "SelectItems": [],
+									  "filterItems": [
+										{
+										  "filterItem": "ncont",
+										  "valueItem": "'. $ncont .'",
+										  "comparison": 0,
+										  "groupItem": 0
+										}
+									  ],
+									  "orderByItems": [],
+									  "JoinEntities": [],
+									  "groupByItems": []
+									}');
+	
 
 		
     	
@@ -931,6 +946,7 @@
     	} else if(empty($response)){
     		return false;
     	} else if(isset($response['messages'][0]['messageCodeLocale'])){
+			echo $response['messages'][0]['messageCodeLocale']."<br>";
     		echo "Error in login. Please verify your username, password, applicationType and company." ;
     		return false;
     	}
@@ -990,6 +1006,12 @@
 		file_put_contents($file, $current);
 		
 	} 
+	 
+	 
+	 
+	 
+	
+?>
 	 
 	 
 	 
