@@ -17,6 +17,7 @@
 	//Define DriveFX settings
 	define("orderNdoc", 1);
 	define("backendUrl", "https://sis05.drivefx.net/c2b337a9/PHCWS/REST");
+	define("backendImgUrl", "https://sis05.drivefx.net/c2b337a9/PHCWS");
 	$_SESSION['driveCredentials'] = array(
 		userCode=>"admin",
 		password=>"12345678",
@@ -55,6 +56,10 @@
 		exit(1);
   	}	  
 
+  	//#Sync Orders from Drive to Store
+  	syncProductsToStore();
+  	exit(1);
+
   	/* Read from GET to check if it is to 
   	 * run sync #A or #A.1
 	 */
@@ -72,46 +77,7 @@
 		syncSingleOrder($orderId);
 	}
 	
-	//TESTS--
-	/*
 
-		$customer = WSDL_GetUserInfoFromOrderId(3559);
-		print_r(json_encode($customer,true));
-		exit(1);
-
-		$orderProducts = WSDL_GetProductsFromOrderId(3559);
-		print_r(json_encode($orderProducts,true));
-		exit(1);
-
-		
-		$loginResult = DRIVE_userLogin();
-		if($loginResult == false){
-			exit(1);
-		}
-		
-		//get product by ref / id 
-		$product = DRIVE_getProductByRefOrId("100192", "1");
-		print_r($product);
-		exit(1);
-		
-		//get customer by ncont / id 
-		$customer = DRIVE_getCustomerByNcontOrId("123456789", "1");
-		print_r($customer);
-		exit(1);
-
-		
-		//get order by id 
-		$order = DRIVE_getOrderById("1");
-		print_r($order);
-		exit(1);
-
-
-		$orderArray = WSDL_GetOrderFromDate();
-		print_r(json_encode($orderArray,true));
-		exit(1);
-	*/
-		
-	
 		
 	//#A - Main Sync Orders
 	function syncOrders(){
@@ -252,6 +218,52 @@
 
 		echo "<br>END<br>";
 		echo "<br><br><br>";	
+	}
+
+	//#A.3 - Sync Products From Drive FX to Store
+	function syncProductsToStore(){
+		//#1 - Get all not synched products
+		$driveProductsList = DRIVE_getProductNotSynced();
+		
+		if(empty($driveProductsList)){
+			$msg = "There are no Products From Drive to Sync.<br>";
+			echo $msg;
+			logData($msg);
+			exit(1);
+		}
+
+		//#2 - Iterate to create
+		foreach ($driveProductsList as $driveProduct) {
+			$msg = "Synching ref: ".$driveProduct['ref']."...<br>";
+			echo $msg;
+			logData($msg);
+
+			//#3 - Call WSDL (directly url of our php in reparacaomobile server) - return = {product_id, product_sku}
+			$productInStore = WSDL_AddProduct($driveProduct);
+			if(isset($productInStore->error)){
+				$msg = "Error on synchronizing ref: ".$driveProduct['ref']."...<br>";
+				echo $msg;
+				logData($msg);
+				continue;
+			}
+
+			//#4 - Update Product and save it in Drive
+			$driveProduct['obs'] = $productInStore->product_id;
+			//#4.1 - Save It
+			$driveProduct = DRIVE_saveInstance("St", $driveProduct);
+			if($driveProduct == null){
+				$msg = "Error on save entity for St. <br><br>";
+				echo $msg;
+				logData($msg);
+				continue;
+			}
+			
+		}
+
+		$msg = "Products synched from Drive to Store!<br>";
+		echo $msg;
+		logData($msg);
+
 	}
 	
 	//#B - Minor functions
@@ -541,6 +553,109 @@
 	/******************************
 	 ***   WSDL Call Functions  ***
 	 ******************************/
+	//Call WSDL to add a new instance of Products
+	function WSDL_AddProduct($product){
+		//http://www.reparacaomobile.pt/sincronizer/insertProduct.php?name=teste&sku=123456789&desc=grande%20desc&img=hjsuuhs.pt&price=10.99
+		$imageUrl = backendImgUrl . "/cimagem.aspx?iflstamp=" . $product['imagestamp'];
+
+		$productQueryString = "?name=".$product['design']."&sku=".$product['ref']."&desc=".$product['desctec']."&img=".$imageUrl."&price=".$product['epv1']."";
+		
+		$callRequest = curl_init(); 
+
+
+        // set url 
+        curl_setopt($callRequest, CURLOPT_URL, "http://www.reparacaomobile.pt/sincronizer/insertProduct.php".$productQueryString); 
+
+        //return the transfer as a string 
+        curl_setopt($callRequest, CURLOPT_RETURNTRANSFER, 1); 
+
+        // $output contains the output string 
+        $insertedProduct = curl_exec($callRequest); 
+
+        // close curl resource to free up system resources 
+        curl_close($callRequest); 
+		
+		return json_decode($insertedProduct);
+	}
+
+	//Call WSDL (fake call) to get a new instance of Products
+	function WSDL_GetNewInstanceProduct(){
+		//THIS IS NOTHING...
+		return false;
+		//creante a product object
+		$productNewInstance = array(
+            product_id=>"99999",
+            virtuemart_vendor_id=>"",
+            product_parent_id=>"",
+            product_sku=>"99999d",
+            product_name=>"TESTE",
+            slug=>"tt",
+            product_s_desc=>"Mais um teste",
+            product_desc=>"Outro tesxte",
+            product_weight=>0,
+            product_weight_uom=>0,
+            product_length=>0,
+            product_width=>0,
+            product_height=>0,
+            product_lwh_uom=>0,
+            product_url=>"",
+            product_in_stock=>"",
+            low_stock_notification=>"",
+            product_available_date=>"",
+            product_availability=>"",
+            product_special=>"",
+            ship_code_id=>"",
+            product_sales=>"",
+            product_unit=>"",
+            product_packaging=>"",
+            product_ordered=>"",
+            hits=>"",
+            intnotes=>"",
+            metadesc=>"",
+            metakey=>"",
+            metarobot=>"",
+            metaauthor=>"",
+            layout=>"",
+            published=>"",
+            product_categories=>"",
+            manufacturer_id=>"",
+            product_params=>"",
+            img_uri=>"",
+            img_thumb_uri=>"",
+            shared=>"",
+            ordering=>"",
+            customtitle=>"",
+            shopper_group_ids=>"",
+            prices=>array(
+               ProductPrice=>array(
+                  product_price_id=>0,
+                  product_id=>0,
+                  product_price=>9.99,
+                  product_currency=>"",
+                  product_price_vdate=>"",
+                  product_price_edate=>"",
+                  created_on=>"",
+                  modified_on=>"",
+                  shopper_group_id=>"",
+                  price_quantity_start=>"",
+                  price_quantity_end=>"",
+                  override=>"",
+                  product_override_price=>"",
+                  product_tax_id=>"",
+                  product_discount_id=>"",
+                  product_final_price=>"",
+                  product_price_info=>""
+                )
+            ),
+            product_gtin=>"",
+            product_mpn=>""
+        );
+
+		//try add now
+		WSDL_AddProduct($productNewInstance);
+		return $productNewInstance;
+	}
+
 	//Call WSDL to get Products within order
 	function WSDL_GetUserInfoFromOrderId($orderId){
 		$callRequest = curl_init(); 
@@ -712,6 +827,43 @@
 	/******************************
 	 *** DriveFX Call Functions ***
 	 ******************************/	
+	//Call Drive to return a list of products not synced
+	function DRIVE_getProductNotSynced(){
+		global $ch;
+		 
+		// #1 - get Order By Id
+    	$url = backendUrl . '/SearchWS/QueryAsEntities';
+    	$params =  array('itemQuery' => '{
+    									  "entityName": "St",
+    									  "distinct": false,
+    									  "lazyLoaded": false,
+    									  "SelectItems": [],
+    									  "filterItems": [
+    									    {
+    									      "filterItem": "obs",
+    									      "valueItem": "",
+    									      "comparison": 0,
+    									      "groupItem": 1
+    									    }
+    									  ],
+    									  "orderByItems": [],
+    									  "JoinEntities": [],
+    									  "groupByItems": []
+    									}');
+    									
+    	$response=DRIVE_Request($ch, $url, $params);
+    	
+    	if(empty($response)){
+    		return false;
+    	} else if(count($response['result']) == 0 ){
+    		return null;
+    	}
+        
+        return $response['result'];		 
+		 
+	}
+
+
 	//Get New Instance (Entity= Cl , Bo, St)
 	function DRIVE_getNewInstance($entity, $ndos){
 	   
