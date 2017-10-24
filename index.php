@@ -16,8 +16,8 @@
 	
 	//Define DriveFX settings
 	define("orderNdoc", 1);
-	define("backendUrl", "https://sis05.drivefx.net/c2b337a9/PHCWS/REST");
-	define("backendImgUrl", "https://sis05.drivefx.net/c2b337a9/PHCWS");
+	define("backendUrl", "https://sis05.drivefx.net/c2b337a9/PHCWS/REST");//TODO MUDAR AQUI 
+	define("backendImgUrl", "https://sis05.drivefx.net/c2b337a9/PHCWS");//TODO MUDAR AQUI 
 	$_SESSION['driveCredentials'] = array(
 		userCode=>"admin",
 		password=>"12345678",
@@ -58,7 +58,7 @@
 
   	//#Sync Orders from Drive to Store
   	syncProductsToStore();
-  	exit(1);
+ exit(1);
 
   	/* Read from GET to check if it is to 
   	 * run sync #A or #A.1
@@ -240,15 +240,17 @@
 
 			//#3 - Call WSDL (directly url of our php in reparacaomobile server) - return = {product_id, product_sku}
 			$productInStore = WSDL_AddProduct($driveProduct);
+		
+		
 			if(isset($productInStore->error)){
 				$msg = "Error on synchronizing ref: ".$driveProduct['ref']."...<br>";
 				echo $msg;
 				logData($msg);
 				continue;
 			}
-
 			//#4 - Update Product and save it in Drive
-			$driveProduct['obs'] = $productInStore->product_id;
+			$driveProduct['obs'] = strval($productInStore->product_id);
+
 			//#4.1 - Save It
 			$driveProduct = DRIVE_saveInstance("St", $driveProduct);
 			if($driveProduct == null){
@@ -556,9 +558,12 @@
 	//Call WSDL to add a new instance of Products
 	function WSDL_AddProduct($product){
 		//http://www.reparacaomobile.pt/sincronizer/insertProduct.php?name=teste&sku=123456789&desc=grande%20desc&img=hjsuuhs.pt&price=10.99
-		$imageUrl = backendImgUrl . "/cimagem.aspx?iflstamp=" . $product['imagestamp'];
+		$picLocation = DRIVE_getImageBytes($product['imagestamp'], $product['ref']);
 
-		$productQueryString = "?name=".$product['design']."&sku=".$product['ref']."&desc=".$product['desctec']."&img=".$imageUrl."&price=".$product['epv1']."";
+		//should be img/ref.jpg
+		$imageUrl = $picLocation;
+ 
+		$productQueryString = "?name=".urlencode($product['design'])."&sku=".urlencode($product['ref'])."&desc=".urlencode($product['desctec'])."&img=".$imageUrl."&price=".$product['epv1']."";
 		
 		$callRequest = curl_init(); 
 
@@ -827,6 +832,41 @@
 	/******************************
 	 *** DriveFX Call Functions ***
 	 ******************************/	
+	//Call Drive to get Image Data, and save it 
+	function DRIVE_getImageBytes($imageStamp, $ref){
+		//#1 - Build image Url
+		$imageUrl = backendImgUrl . "/cimagem.aspx?iflstamp=" . $imageStamp ;
+
+		// create curl resource 
+        global $ch;
+
+
+        //return the transfer as a string 
+         $timeout = 0;
+		curl_setopt ($ch, CURLOPT_URL, $imageUrl);
+		curl_setopt ($ch, CURLOPT_CONNECTTIMEOUT, $timeout);
+
+		// Getting binary data
+		curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
+		curl_setopt($ch, CURLOPT_BINARYTRANSFER, 1);
+
+		$image = curl_exec($ch);
+		curl_close($ch);
+
+		// output to browser
+		if (!file_exists('img/')) {
+		    mkdir('../img/', 0777, true);
+		}
+		$saveTo = '../img/' . $ref . '.jpg';
+		file_put_contents($saveTo, $image);
+     
+		//$saveThumb = '../images/stories/virtuemart/product/' . $ref . '.jpg';
+		//file_put_contents($saveThumb, $image);
+		
+
+		return 'img/' . $ref . '.jpg';
+	}
+
 	//Call Drive to return a list of products not synced
 	function DRIVE_getProductNotSynced(){
 		global $ch;
@@ -928,6 +968,8 @@
 	
 		//echo json_encode( $response ); 
 		if(empty($response)){
+			$msg = "Empty save";
+			logData($msg);
 			return null;
 		}
 		if(isset($response['messages'][0]['messageCodeLocale'])){
@@ -1139,6 +1181,10 @@
     	curl_setopt($ch, CURLOPT_URL, $url);
     	curl_setopt($ch, CURLOPT_POST, false);
     	curl_setopt($ch, CURLOPT_POSTFIELDS, $params);
+	
+		curl_setopt($ch, CURLOPT_BINARYTRANSFER, false);
+
+
     	$response = curl_exec($ch);
     	// send response as JSON
     	return json_decode($response, true);
