@@ -58,7 +58,7 @@
 
   	//#Sync Orders from Drive to Store
   	syncProductsToStore();
- exit(1);
+	exit(1); //Remover antes de sincronizar o resto
 
   	/* Read from GET to check if it is to 
   	 * run sync #A or #A.1
@@ -582,7 +582,7 @@
 
         // close curl resource to free up system resources 
         curl_close($callRequest); 
-        
+
 		return json_decode($insertedProduct);
 	}
 

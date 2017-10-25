@@ -13,10 +13,12 @@ $productToReturn = array();
 //#1 - Insert into Products, only SKU (Drive FX Ref)
 $sql = "INSERT INTO xmwqp_virtuemart_products (product_sku) 
 		VALUES (".$prod_sku.");";
+
+
 $rs = $db->exec($sql);
 
 if($rs != 1){
-	echo "ocorreu 1 erro no insert do sku";
+	echo '{"error": "insert sku failed"}';
 	exit(1);
 }
 
@@ -30,11 +32,11 @@ $productToReturn['product_id'] = $item->virtuemart_product_id;
 $productToReturn['product_sku'] = $item->product_sku;
 
 //#2 - insert into xmwqp_virtuemart_products_pt_pt es_es e en_gb //tem descricoes do artigo completas, falta o campo slug
-$sql = "INSERT INTO xmwqp_virtuemart_products_pt_pt (virtuemart_product_id, product_s_desc, product_desc, product_name, metadesc, metakey, customtitle, slug) VALUES ('".$product_id."', '', '".$prod_desc."', '".$prod_name."', '', '', '', '')";
+$sql = "INSERT INTO xmwqp_virtuemart_products_pt_pt (virtuemart_product_id, product_s_desc, product_desc, product_name, metadesc, metakey, customtitle, slug) VALUES ('".$product_id."', '', '".$prod_desc."', '".$prod_name."', '', '', '', '".str_replace(" ", "-", $prod_name)."')";
 $rs = $db->exec($sql);
 
 if($rs != 1){
-	echo "ocorreu 1 erro no insert do pt_pt";
+	echo '{"error": "insert pt_pt failed"}';
 	exit(1);
 }
 
@@ -45,17 +47,17 @@ $sql = "INSERT INTO xmwqp_virtuemart_product_prices (virtuemart_product_id, virt
 $rs = $db->exec($sql);
 
 if($rs != 1){
-	echo "ocorreu 1 erro no insert do prices";
+	echo '{"error": "insert prices failed"}';
 	exit(1);
 }
 
 //#4 - Insert media 
 if($prod_img != ''){
 
-	$sql = "INSERT INTO xmwqp_virtuemart_medias (virtuemart_vendor_id, file_title, file_description, file_meta, file_class, file_mimetype, file_type, file_url, file_url_thumb, file_is_product_image, file_is_downloadable, file_is_forSale, file_params, file_lang, shared, published, created_on, created_by, modified_on, modified_by, locked_on, locked_by) VALUES ('1', '".$product_id."', '', '', '', 'image/jpeg', 'product', '".$prod_img."', '', '0', '0', '0', '', '', '0', '1', '0000-00-00 00:00:00.000000', '0', '0000-00-00 00:00:00.000000', '0', '0000-00-00 00:00:00.000000', '0')";
+	$sql = "INSERT INTO xmwqp_virtuemart_medias (virtuemart_vendor_id, file_title, file_description, file_meta, file_class, file_mimetype, file_type, file_url, file_url_thumb, file_is_product_image, file_is_downloadable, file_is_forSale, file_params, file_lang, shared, published, created_on, created_by, modified_on, modified_by, locked_on, locked_by) VALUES ('1', '".$product_id."', '', '', '', 'image/jpeg', 'product', '".$prod_img."', '".$prod_img."', '0', '0', '0', '', '', '0', '1', '0000-00-00 00:00:00.000000', '0', '0000-00-00 00:00:00.000000', '0', '0000-00-00 00:00:00.000000', '0')";
 	$rs = $db->exec($sql);
 	if($rs != 1){
-		echo "ocorreu 1 erro no insert do media";
+		echo '{"error": "insert media failed"}';
 		exit(1);
 	}
 
@@ -70,7 +72,7 @@ if($prod_img != ''){
 		$sql = "INSERT INTO xmwqp_virtuemart_product_medias (virtuemart_product_id, virtuemart_media_id, ordering) VALUES ('".$product_id."', '".$media_id."', '0')";
 		$rs = $db->exec($sql);
 		if($rs != 1){
-			echo "ocorreu 1 erro no insert do media no prod_media";
+			echo '{"error": "insert media prod failed"}';
 			exit(1);
 		}
 
