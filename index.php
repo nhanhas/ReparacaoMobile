@@ -241,7 +241,6 @@
 			//#3 - Call WSDL (directly url of our php in reparacaomobile server) - return = {product_id, product_sku}
 			$productInStore = WSDL_AddProduct($driveProduct);
 		
-		
 			if(isset($productInStore->error)){
 				$msg = "Error on synchronizing ref: ".$driveProduct['ref']."...<br>";
 				echo $msg;
@@ -259,6 +258,10 @@
 				logData($msg);
 				continue;
 			}
+
+			$msg = "Products with ref: ".$driveProduct['ref']." synched to Store!<br>";
+			echo $msg;
+			logData($msg);
 			
 		}
 
@@ -579,7 +582,7 @@
 
         // close curl resource to free up system resources 
         curl_close($callRequest); 
-		
+        
 		return json_decode($insertedProduct);
 	}
 
@@ -840,18 +843,18 @@
 		// create curl resource 
         global $ch;
 
-
+        $imageCH = curl_copy_handle($ch);
         //return the transfer as a string 
-         $timeout = 0;
-		curl_setopt ($ch, CURLOPT_URL, $imageUrl);
-		curl_setopt ($ch, CURLOPT_CONNECTTIMEOUT, $timeout);
+        $timeout = 0;
+		curl_setopt ($imageCH, CURLOPT_URL, $imageUrl);
+		curl_setopt ($imageCH, CURLOPT_CONNECTTIMEOUT, $timeout);
 
 		// Getting binary data
-		curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
-		curl_setopt($ch, CURLOPT_BINARYTRANSFER, 1);
+		curl_setopt($imageCH, CURLOPT_RETURNTRANSFER, 1);
+		curl_setopt($imageCH, CURLOPT_BINARYTRANSFER, 1);
 
-		$image = curl_exec($ch);
-		curl_close($ch);
+		$image = curl_exec($imageCH);
+		curl_close($imageCH);
 
 		// output to browser
 		if (!file_exists('img/')) {
