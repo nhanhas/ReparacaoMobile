@@ -16,8 +16,8 @@
 	
 	//Define DriveFX settings
 	define("orderNdoc", 1);
-	define("backendUrl", "https://sis05.drivefx.net/c2b337a9/PHCWS/REST");//TODO MUDAR AQUI 
-	define("backendImgUrl", "https://sis05.drivefx.net/c2b337a9/PHCWS");//TODO MUDAR AQUI 
+	define("backendUrl", "https://sis07.drivefx.net/2172d06c/PHCWS/REST");//TODO MUDAR AQUI 
+	define("backendImgUrl", "https://sis07.drivefx.net/2172d06c/PHCWS");//TODO MUDAR AQUI 
 	$_SESSION['driveCredentials'] = array(
 		userCode=>"admin",
 		password=>"12345678",
@@ -57,7 +57,7 @@
   	}	  
 
   	//#Sync Orders from Drive to Store
-  	syncProductsToStore();
+	syncProductsToStore();
 	exit(1); //Remover antes de sincronizar o resto
 
   	/* Read from GET to check if it is to 
@@ -232,37 +232,82 @@
 			exit(1);
 		}
 
-		//#2 - Iterate to create
+		//#2 - Iterate to create/or update in case of exist
 		foreach ($driveProductsList as $driveProduct) {
+			//flag to update STOCK
+			$toUpdateStock = false;
+
 			$msg = "Synching ref: ".$driveProduct['ref']."...<br>";
 			echo $msg;
 			logData($msg);
 
-			//#3 - Call WSDL (directly url of our php in reparacaomobile server) - return = {product_id, product_sku}
-			$productInStore = WSDL_AddProduct($driveProduct);
-		
-			if(isset($productInStore->error)){
-				$msg = "Error on synchronizing ref: ".$driveProduct['ref']."...<br>";
-				echo $msg;
-				logData($msg);
-				continue;
-			}
-			//#4 - Update Product and save it in Drive
-			$driveProduct['obs'] = strval($productInStore->product_id);
+			//#2.1 - Now, check if this product exists in store!
+			$productAlreadyInStore = WSDL_GetProductFromSku($driveProduct['ref']);
 
-			//#4.1 - Save It
-			$driveProduct = DRIVE_saveInstance("St", $driveProduct);
-			if($driveProduct == null){
-				$msg = "Error on save entity for St. <br><br>";
-				echo $msg;
-				logData($msg);
-				continue;
-			}
+			if($productAlreadyInStore !== null){
+				//in this case, update drive product with ST.obs = StoreProd.product_id
+				//Update Product and save it in Drive
+				$driveProduct['obs'] = strval($productAlreadyInStore->product_id);
 
-			$msg = "Products with ref: ".$driveProduct['ref']." synched to Store!<br>";
-			echo $msg;
-			logData($msg);
+				//#update obs in drive
+				$driveProduct = DRIVE_saveInstance("St", $driveProduct);
+				if($driveProduct == null){
+					$msg = "Error on save entity for St. <br><br>";
+					echo $msg;
+					logData($msg);
+					continue;
+				}else{
+					$msg = "Product obs updated in Drive!product_id:".$productAlreadyInStore->product_id." <br><br>";
+					echo $msg;
+					logData($msg);
+					
+					$toUpdateStock = true;//mark flag to update stock later
+				}
+
+
+			}else{
+				//Create it in store
+				//#3 - Call WSDL (directly url of our php in reparacaomobile server) - return = {product_id, product_sku}
+				$productInStore = WSDL_AddProduct($driveProduct);
 			
+				if(isset($productInStore->error)){
+					$msg = "Error on synchronizing ref: ".$driveProduct['ref']."...<br>";
+					echo $msg;
+					logData($msg);
+					continue;
+				}
+				//#4 - Update Product and save it in Drive
+				$driveProduct['obs'] = strval($productInStore->product_id);
+
+				//#4.1 - Save It
+				$driveProduct = DRIVE_saveInstance("St", $driveProduct);
+				if($driveProduct == null){
+					$msg = "Error on save entity for St. <br><br>";
+					echo $msg;
+					logData($msg);
+					continue;
+				}
+
+				$msg = "Products with ref: ".$driveProduct['ref']." synched to Store!<br>";
+				echo $msg;
+				logData($msg);
+
+				
+				$toUpdateStock = true;//mark flag to update stock later
+			}
+
+
+			if($toUpdateStock == true){
+				$returnStockUpdated=WSDL_UpdProductStockById($driveProduct['obs'], $driveProduct['stock']);
+
+			  	if($returnStockUpdated->returnCode == 0){
+			  		$msg = "Product stock updated in STORE!product ref: ".$driveProduct['ref']." <br><br>";
+					echo $msg;
+					logData($msg);
+			  	}
+			}
+
+
 		}
 
 		$msg = "Products synched from Drive to Store!<br>";
@@ -558,6 +603,76 @@
 	/******************************
 	 ***   WSDL Call Functions  ***
 	 ******************************/
+		//Call WSDL to get Products By Sku
+	function WSDL_UpdProductStockById($productId, $stock){
+		//#1 - set Login info
+		$loginInfo = $_SESSION['loginInfo'];
+
+		//#2 - Build params 
+		$params = array(
+			loginInfo=>$loginInfo,
+			UpdateStocks=>array(
+				UpdateStock => array(
+					product_id=>$productId,
+					product_in_stock=> $stock
+				)
+			)	
+		);
+
+		//#3 - Setup Connection SOAP
+		$client = new SoapClient(SOAP_BASE . "/VM_ProductWSDL.php");
+		try{
+			//#4 - Make the call
+			$productUpdated = array($client->UpdateStock($params));
+			
+			//#5 - Treat Result
+			$productUpdated = $productUpdated[0];
+			
+			//#6 - Return Result
+			return $productUpdated;
+
+		}catch(Exception $ex){
+
+		}
+		
+		//#6 - Return Result
+		return null;
+	} 
+
+
+	//Call WSDL to get Products By Sku
+	function WSDL_GetProductFromSku($orderSku){
+		//#1 - set Login info
+		$loginInfo = $_SESSION['loginInfo'];
+
+		//#2 - Build params 
+		$params = array(
+			loginInfo=>$loginInfo,
+			product_sku=>$orderSku,
+			include_prices=>"Y"			
+		);
+
+		//#3 - Setup Connection SOAP
+		$client = new SoapClient(SOAP_BASE . "/VM_ProductWSDL.php");
+		try{
+			//#4 - Make the call
+			$productFromSku = array($client->GetProductFromSku($params));
+
+			//#5 - Treat Result
+			$productFromSku = $productFromSku[0];
+			
+			//#6 - Return Result
+			return $productFromSku;
+
+		}catch(Exception $ex){
+
+		}
+		
+		//#6 - Return Result
+		return null;
+	} 
+
+
 	//Call WSDL to add a new instance of Products
 	function WSDL_AddProduct($product){
 		//http://www.reparacaomobile.pt/sincronizer/insertProduct.php?name=teste&sku=123456789&desc=grande%20desc&img=hjsuuhs.pt&price=10.99
