@@ -245,6 +245,8 @@
 			$productAlreadyInStore = WSDL_GetProductFromSku($driveProduct['ref']);
 
 			if($productAlreadyInStore !== null){
+				//first we update prices
+				WSDL_UpdProductPricesByProd($productAlreadyInStore, $driveProduct);
 				//in this case, update drive product with ST.obs = StoreProd.product_id
 				//Update Product and save it in Drive
 				$driveProduct['obs'] = strval($productAlreadyInStore->product_id);
@@ -603,7 +605,49 @@
 	/******************************
 	 ***   WSDL Call Functions  ***
 	 ******************************/
-		//Call WSDL to get Products By Sku
+			//Call WSDL to get Products By Sku
+	function WSDL_UpdProductPricesByProd($storeProduct, $driveProduct){
+
+		
+		if($driveProduct['epv2'] > 0 && isset($storeProduct->prices->ProductPrice[1])){
+			//epv2 ta na posicao 1
+			$storeProduct->prices->ProductPrice[1]->product_price = $driveProduct['epv2'];
+
+			
+		}
+		//epv2 ta na posicao 0
+		$storeProduct->prices->ProductPrice[0]->product_price = $driveProduct['epv1'];
+		
+
+		//#1 - set Login info
+		$loginInfo = $_SESSION['loginInfo'];
+
+		//#2 - Build params 
+		$params = array(
+			loginInfo=>$loginInfo,
+			ProductPrices=>$storeProduct->prices
+			
+		);
+
+		//#3 - Setup Connection SOAP
+		$client = new SoapClient(SOAP_BASE . "/VM_ProductWSDL.php");
+		try{
+			//#4 - Make the call
+			$productUpdated = array($client->UpdateProductPrices($params));
+			print_r($productUpdated);
+		
+			//#6 - Return Result
+			return $productUpdated;
+
+		}catch(Exception $ex){
+
+		}
+		
+		//#6 - Return Result
+		return null;
+	} 	
+
+	//Call WSDL to get Products By Sku
 	function WSDL_UpdProductStockById($productId, $stock){
 		//#1 - set Login info
 		$loginInfo = $_SESSION['loginInfo'];
@@ -681,7 +725,7 @@
 		//should be img/ref.jpg
 		$imageUrl = $picLocation;
  
-		$productQueryString = "?name=".urlencode($product['design'])."&sku=".urlencode($product['ref'])."&desc=".urlencode($product['desctec'])."&img=".$imageUrl."&price=".$product['epv1']."";
+		$productQueryString = "?name=".urlencode($product['design'])."&sku=".urlencode($product['ref'])."&desc=".urlencode($product['desctec'])."&img=".$imageUrl."&price=".$product['epv1']."&price2=".$product['epv2']."";
 		
 		$callRequest = curl_init(); 
 

@@ -6,6 +6,7 @@ $prod_sku = $_GET['sku'];
 $prod_desc = $_GET['desc'];
 $prod_img = $_GET['img'];
 $prod_price = $_GET['price'];
+$prod_price2 = $_GET['price2'];
 
 
 $productToReturn = array();
@@ -42,6 +43,17 @@ if($rs != 1){
 
 //vamos usar o 3386 como examplo
 
+//#3.2 - insert epv2 in case of existance
+if($prod_price2 > 0){
+	$sql = "INSERT INTO xmwqp_virtuemart_product_prices (virtuemart_product_id, virtuemart_shoppergroup_id, product_price, product_currency, product_price_publish_up) VALUES ('".$product_id."', '0', '".$prod_price2."', '47', '2017-10-10 00:00:00')";
+	$rs = $db->exec($sql);
+
+	if($rs != 1){
+		echo '{"error": "insert prices 2 failed"}';
+		exit(1);
+	}	
+}
+
 //#3 - Insert do price
 $sql = "INSERT INTO xmwqp_virtuemart_product_prices (virtuemart_product_id, virtuemart_shoppergroup_id, product_price, product_currency, product_price_publish_up) VALUES ('".$product_id."', '0', '".$prod_price."', '47', '2017-10-10 00:00:00')";
 $rs = $db->exec($sql);
@@ -50,6 +62,9 @@ if($rs != 1){
 	echo '{"error": "insert prices failed"}';
 	exit(1);
 }
+
+
+
 
 //#4 - Insert media 
 if($prod_img != ''){
