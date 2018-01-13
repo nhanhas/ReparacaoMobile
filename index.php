@@ -26,13 +26,13 @@
 	);
 	
 		
-	//set as global Call HEADER for Drive fX
+		//set as global Call HEADER for Drive fX
 	$ch = curl_init();
-	
+
 	//WSDL Reference : http://www.virtuemart-datamanager.com/soap/VM2_SOAP_DOC.html#WS-VM_Product
 	//Drive FX : https://sis05.drivefx.net/c2b337a9/html/
 
-	
+
 
 	$msg = "Starting Sync...<br>";
 	echo $msg;
@@ -54,13 +54,15 @@
 		logData($msg);
 		echo $msg;
 		exit(1);
-  	}	  
+  	}
 
   	//#Sync Orders from Drive to Store
-	syncProductsToStore();
-	exit(1); //Remover antes de sincronizar o resto
+    //if(!(isset($_GET["id"]))){
+	//syncProductsToStore();
+	//}
+	//exit(1); //Remover antes de sincronizar o resto
 
-  	/* Read from GET to check if it is to 
+  	/* Read from GET to check if it is to
   	 * run sync #A or #A.1
 	 */
   	$orderId = 0;
@@ -76,9 +78,9 @@
 		//#A.2 - Sync a sinlge order by order_id
 		syncSingleOrder($orderId);
 	}
-	
 
-		
+
+
 	//#A - Main Sync Orders
 	function syncOrders(){
 		//#1 - Get Orders from Store
@@ -101,7 +103,7 @@
 				continue;
 			}
 
-			//At this point means that order is not yet synched	
+			//At this point means that order is not yet synched
 			$msg = "Order with Id=".$order->id." starting to sync... .<br><br>";
 			echo $msg;
 			logData($msg);
@@ -117,7 +119,7 @@
 			}
 
 			//At this point means that we have customer, now sync product
-			
+
 			$orderProducts = WSDL_GetProductsFromOrderId($order->id);
 			$driveProducts = processProducts($orderProducts);
 			if($driveProducts == null){
@@ -127,8 +129,8 @@
 				continue;
 			}
 
-			
-			//At this point means that we have all (customer and products) to create an order 
+
+			//At this point means that we have all (customer and products) to create an order
 
 			//#5 - Generate a new Order, we send to func $customer=shop customer, because consumidor final
 			$newOrderDrive = createOrder($order, $customer, $customerDrive, $driveProducts);
@@ -154,14 +156,15 @@
 
 	//#A.2 - Secondary, sync a single order (use #A or #A.2, exclusivity)
 	function syncSingleOrder($orderId){
+
 		//#1 - Get order by Id from store
 		$order = WSDL_GetOrder($orderId);
-		if (empty((array) $order)){
+		if (empty($order)){
 			$msg =  "Error on getting Order by id = ".$orderId." <br>";
 			logData($msg);
 			echo $msg;
 			exit(1);
-	  	}	
+	  	}
 
 		//#3 - Get order @Drive by BO.obs = order_id
 		if(DRIVE_getOrderById($order->id) != null){
@@ -171,7 +174,7 @@
 			exit(1);
 		}
 
-		//At this point means that order is not yet synched	
+		//At this point means that order is not yet synched
 		$msg = "Order with Id=".$order->id." starting to sync... .<br><br>";
 		echo $msg;
 		logData($msg);
@@ -187,7 +190,7 @@
 		}
 
 		//At this point means that we have customer, now sync product
-		
+
 		$orderProducts = WSDL_GetProductsFromOrderId($order->id);
 		$driveProducts = processProducts($orderProducts);
 		if($driveProducts == null){
@@ -197,8 +200,8 @@
 			exit(1);
 		}
 
-		
-		//At this point means that we have all (customer and products) to create an order 
+
+		//At this point means that we have all (customer and products) to create an order
 
 		//#5 - Generate a new Order, we send to func $customer=shop customer, because consumidor final
 		$newOrderDrive = createOrder($order, $customer, $customerDrive, $driveProducts);
@@ -217,20 +220,22 @@
 
 
 		echo "<br>END<br>";
-		echo "<br><br><br>";	
+		echo "<br><br><br>";
 	}
 
 	//#A.3 - Sync Products From Drive FX to Store
 	function syncProductsToStore(){
 		//#1 - Get all not synched products
 		$driveProductsList = DRIVE_getProductNotSynced();
-		
+
 		if(empty($driveProductsList)){
 			$msg = "There are no Products From Drive to Sync.<br>";
 			echo $msg;
 			logData($msg);
 			exit(1);
 		}
+
+
 
 		//#2 - Iterate to create/or update in case of exist
 		foreach ($driveProductsList as $driveProduct) {
@@ -262,7 +267,7 @@
 					$msg = "Product obs updated in Drive!product_id:".$productAlreadyInStore->product_id." <br><br>";
 					echo $msg;
 					logData($msg);
-					
+
 					$toUpdateStock = true;//mark flag to update stock later
 				}
 
@@ -271,7 +276,7 @@
 				//Create it in store
 				//#3 - Call WSDL (directly url of our php in reparacaomobile server) - return = {product_id, product_sku}
 				$productInStore = WSDL_AddProduct($driveProduct);
-			
+
 				if(isset($productInStore->error)){
 					$msg = "Error on synchronizing ref: ".$driveProduct['ref']."...<br>";
 					echo $msg;
@@ -294,7 +299,7 @@
 				echo $msg;
 				logData($msg);
 
-				
+
 				$toUpdateStock = true;//mark flag to update stock later
 			}
 
@@ -317,7 +322,7 @@
 		logData($msg);
 
 	}
-	
+
 	//#B - Minor functions
 
 	function createOrder($order, $shopCustomer, $customerDrive, $driveProducts){
@@ -429,7 +434,7 @@
 		$driveProducts = array();
 		//Iterate products to create
 		foreach ($productsList as $product) {
-			
+
 			#1 - check if it is already created @Drive
 			$driveProduct = DRIVE_getProductByRefOrId($product->order_item_sku, $product->product_id);
 			if($driveProduct != null){
@@ -440,7 +445,7 @@
 					"qtt" => $product->product_quantity,
 					"ivaincl" => false,
 					"edebito" => $product->product_item_price
-				); 
+				);
 				continue;
 			}
 
@@ -453,14 +458,14 @@
 				return null;
 			}
 
-			//#3 - Add to final Drive Products array 
+			//#3 - Add to final Drive Products array
 			$driveProducts[] = array(
 					"ref" => $newInstanceSt['ref'],
 					"design" => $product->order_item_name,
 					"qtt" => $product->product_quantity,
 					"ivaincl" => false,
 					"edebito" => $product->product_item_price
-				); 
+				);
 		}
 
 		return $driveProducts;
@@ -481,10 +486,10 @@
 		$newInstanceSt['ref'] = $product->order_item_sku;
 		$newInstanceSt['design'] = $product->order_item_name;
 		$newInstanceSt['epv1'] = $product->product_item_price;
-		
+
 		$newInstanceSt['obs'] = $product->product_id;//obs will be the product id from store
 
-		
+
 		//#2 - an sync entity
 		$newInstanceSt = DRIVE_actEntiy("St", $newInstanceSt);
 		if($newInstanceSt == null){
@@ -510,44 +515,107 @@
 	}
 
 
-	//Treat all things to customer - get/create
-	function processCustomer($customer){
-		//#1 - check if it already exists in Drive
-		$driveCustomer = DRIVE_getCustomerByNcontOrId($customer->nif);
-		if($driveCustomer != null){			
-			return $driveCustomer;
-		}
-			
-		//At this point means that we need to create
-		$newInstanceCl = createCustomer($customer);		
-		if($newInstanceCl == null){
-			$msg = "Error on process customer ,Order with Id=".$order->id.".<br><br>";
-			echo $msg;
-			logData($msg);
-		}
 
-		return $newInstanceCl;
-	}
+  	function processCustomer($customer){
+  		//#0 - check if NIF is fulfilled
+  		if($customer->nif == '' || $customer->nif == null){
+
+  			$driveCustomer = DRIVE_getCustomerByEmail($customer->email);
+
+  			if($driveCustomer != null){
+  				return $driveCustomer;
+  			}
+
+
+  		}
+
+
+
+  		//nao e preciso else porque tem return caso nao tenha nif e encontre o cl generico
+
+  		//#1 - check if it already exists in Drive
+			if($customer->nif != '' || $customer->nif != null){
+				$driveCustomer = DRIVE_getCustomerByNcontOrId($customer->nif);
+				if($driveCustomer != null){
+					return $driveCustomer;
+				}
+			}
+
+  		//At this point means that we need to create
+  		$newInstanceCl = createCustomer($customer);
+
+  		if($newInstanceCl == null){
+  			$msg = "Error on process customer ,Order with Id=".$order->id.".<br><br>";
+  			echo $msg;
+  			logData($msg);
+  		}
+  		return $newInstanceCl;
+  	}
+
+
+
+
+
+  	//Call Drive to return an order by observation Id
+  	function DRIVE_getCustomerByEmail($email){
+  		global $ch;
+
+  		// #1 - get Order By Id
+      	$url = backendUrl . '/SearchWS/QueryAsEntities';
+
+  		$params =  array('itemQuery' => '{
+  									  "entityName": "Cl",
+  									  "distinct": false,
+  									  "lazyLoaded": false,
+  									  "SelectItems": [],
+  									  "filterItems": [
+  										{
+  										  "filterItem": "email",
+  										  "valueItem": "'.$email.'",
+  										  "comparison": 0,
+  										  "groupItem": 0
+  										}
+  									  ],
+  									  "orderByItems": [],
+  									  "JoinEntities": [],
+  									  "groupByItems": []
+  									}');
+
+
+
+
+      	$response=DRIVE_Request($ch, $url, $params);
+
+      	if(empty($response)){
+      		return false;
+      	} else if(count($response['result']) == 0 ){
+      		return null;
+      	}
+
+          return $response['result'][0];
+
+  	}
+
 
 	//Just to Create a customer with all data needed
 	function createCustomer($customer){
-		global $countryList;		
-		
-		//aux function  
+		global $countryList;
+
+		//aux function
 		$_getPaisstampByPnCont = function($pncont)
-		{	
+		{
 			global $countryList;
 			 foreach ($countryList as $country) {
 				 if($country['pncont']===$pncont){
 					 return $country;
 				 }
-				 
+
 			 }
 			 return null;
-			
-		}; 
-		
-		
+
+		};
+
+
 		//#1 - get New Instance
 		$newInstanceCl = DRIVE_getNewInstance("Cl", 0);
 		if($newInstanceCl == null){
@@ -564,14 +632,14 @@
 		$newInstanceCl['local'] = $customer->city;
 		$newInstanceCl['codpost'] = $customer->zip;
 		$newInstanceCl['ncont'] = $customer->nif;
-		
+
 		$country = $_getPaisstampByPnCont($customer->code);
 		if(!empty($country)){
 			$newInstanceCl['pncont'] = $customer->code;
 			$newInstanceCl['paisesstamp'] = $country['paisesstamp'];
 			$newInstanceCl['pais'] = $country['nome'];
 		}
-		
+
 		$newInstanceCl['obs'] = $customer->user_id;//obs will be the customer id from store
 
 		$newInstanceCl['tlmvl'] = !empty($customer->phone_1) ? $customer->phone_1 : $customer->phone_2;
@@ -599,34 +667,55 @@
 		logData($msg);
 		return $newInstanceCl;
 	}
-	
-	
-	
+
+
+
 	/******************************
 	 ***   WSDL Call Functions  ***
 	 ******************************/
 			//Call WSDL to get Products By Sku
 	function WSDL_UpdProductPricesByProd($storeProduct, $driveProduct){
 
-		
-		if($driveProduct['epv2'] > 0 && isset($storeProduct->prices->ProductPrice[1])){
-			//epv2 ta na posicao 1
-			$storeProduct->prices->ProductPrice[1]->product_price = $driveProduct['epv2'];
 
-			
+
+		if($driveProduct['epv2'] > 0 && is_array($storeProduct->prices->ProductPrice)){
+			//epv2 ta na posicao 1
+			if(is_array($storeProduct->prices->ProductPrice)){
+			      $storeProduct->prices->ProductPrice[1]->product_price = $driveProduct['epv2'];
+			        $storeProduct->prices->ProductPrice[1]->shopper_group_id=3;
+			         $storeProduct->prices->ProductPrice[1]->product_tax_id=1;
+			           $storeProduct->prices->ProductPrice[1]->product_discount_id=-1;
+			}else {
+			    $storeProduct->prices->ProductPrice->product_price = $driveProduct['epv2'];
+			      $storeProduct->prices->ProductPrice->shopper_group_id=3;
+			       $storeProduct->prices->ProductPrice[1]->product_tax_id=1;
+			           $storeProduct->prices->ProductPrice[1]->product_discount_id=-1;
+			}
+
 		}
 		//epv2 ta na posicao 0
-		$storeProduct->prices->ProductPrice[0]->product_price = $driveProduct['epv1'];
-		
+
+	  if(is_array($storeProduct->prices->ProductPrice)){
+			$storeProduct->prices->ProductPrice[0]->product_price = $driveProduct['epv1'];
+	      $storeProduct->prices->ProductPrice[0]->shopper_group_id=1;
+	       $storeProduct->prices->ProductPrice[0]->product_tax_id=1;
+	           $storeProduct->prices->ProductPrice[0]->product_discount_id=-1;
+	  }else {
+	    $storeProduct->prices->ProductPrice->product_price = $driveProduct['epv1'];
+	      $storeProduct->prices->ProductPrice->shopper_group_id=1;
+	       $storeProduct->prices->ProductPrice->product_tax_id=1;
+	           $storeProduct->prices->ProductPrice->product_discount_id=-1;
+	  }
+
 
 		//#1 - set Login info
 		$loginInfo = $_SESSION['loginInfo'];
 
-		//#2 - Build params 
+		//#2 - Build params
 		$params = array(
 			loginInfo=>$loginInfo,
 			ProductPrices=>$storeProduct->prices
-			
+
 		);
 
 		//#3 - Setup Connection SOAP
@@ -634,25 +723,25 @@
 		try{
 			//#4 - Make the call
 			$productUpdated = array($client->UpdateProductPrices($params));
-			print_r($productUpdated);
-		
+
+
 			//#6 - Return Result
 			return $productUpdated;
 
 		}catch(Exception $ex){
 
 		}
-		
+
 		//#6 - Return Result
 		return null;
-	} 	
+	}
 
 	//Call WSDL to get Products By Sku
 	function WSDL_UpdProductStockById($productId, $stock){
 		//#1 - set Login info
 		$loginInfo = $_SESSION['loginInfo'];
 
-		//#2 - Build params 
+		//#2 - Build params
 		$params = array(
 			loginInfo=>$loginInfo,
 			UpdateStocks=>array(
@@ -660,28 +749,29 @@
 					product_id=>$productId,
 					product_in_stock=> $stock
 				)
-			)	
+			)
 		);
+
 
 		//#3 - Setup Connection SOAP
 		$client = new SoapClient(SOAP_BASE . "/VM_ProductWSDL.php");
 		try{
 			//#4 - Make the call
 			$productUpdated = array($client->UpdateStock($params));
-			
+
 			//#5 - Treat Result
 			$productUpdated = $productUpdated[0];
-			
+
 			//#6 - Return Result
 			return $productUpdated;
 
 		}catch(Exception $ex){
 
 		}
-		
+
 		//#6 - Return Result
 		return null;
-	} 
+	}
 
 
 	//Call WSDL to get Products By Sku
@@ -689,11 +779,11 @@
 		//#1 - set Login info
 		$loginInfo = $_SESSION['loginInfo'];
 
-		//#2 - Build params 
+		//#2 - Build params
 		$params = array(
 			loginInfo=>$loginInfo,
 			product_sku=>$orderSku,
-			include_prices=>"Y"			
+			include_prices=>"Y"
 		);
 
 		//#3 - Setup Connection SOAP
@@ -704,17 +794,17 @@
 
 			//#5 - Treat Result
 			$productFromSku = $productFromSku[0];
-			
+
 			//#6 - Return Result
 			return $productFromSku;
 
 		}catch(Exception $ex){
 
 		}
-		
+
 		//#6 - Return Result
 		return null;
-	} 
+	}
 
 
 	//Call WSDL to add a new instance of Products
@@ -724,23 +814,29 @@
 
 		//should be img/ref.jpg
 		$imageUrl = $picLocation;
- 
-		$productQueryString = "?name=".urlencode($product['design'])."&sku=".urlencode($product['ref'])."&desc=".urlencode($product['desctec'])."&img=".$imageUrl."&price=".$product['epv1']."&price2=".$product['epv2']."";
-		
-		$callRequest = curl_init(); 
+
+		//Use desctec in name when exists
+		$description = $product['design'];
+		if($product['desctec'] != ''){
+			$description = $product['desctec'];
+		}
+
+		$productQueryString = "?name=".urlencode($description)."&sku=".urlencode($product['ref'])."&desc=".urlencode($product['desctec'])."&img=".$imageUrl."&price=".$product['epv1']."&price2=".$product['epv2']."";
+
+		$callRequest = curl_init();
 
 
-        // set url 
-        curl_setopt($callRequest, CURLOPT_URL, "http://www.reparacaomobile.pt/sincronizer/insertProduct.php".$productQueryString); 
+        // set url
+        curl_setopt($callRequest, CURLOPT_URL, "http://www.reparacaomobile.pt/sincronizer/insertProduct.php".$productQueryString);
 
-        //return the transfer as a string 
-        curl_setopt($callRequest, CURLOPT_RETURNTRANSFER, 1); 
+        //return the transfer as a string
+        curl_setopt($callRequest, CURLOPT_RETURNTRANSFER, 1);
 
-        // $output contains the output string 
-        $insertedProduct = curl_exec($callRequest); 
+        // $output contains the output string
+        $insertedProduct = curl_exec($callRequest);
 
-        // close curl resource to free up system resources 
-        curl_close($callRequest); 
+        // close curl resource to free up system resources
+        curl_close($callRequest);
 
 		return json_decode($insertedProduct);
 	}
@@ -825,29 +921,29 @@
 
 	//Call WSDL to get Products within order
 	function WSDL_GetUserInfoFromOrderId($orderId){
-		$callRequest = curl_init(); 
+		$callRequest = curl_init();
 
-        // set url 
-        curl_setopt($callRequest, CURLOPT_URL, "http://www.reparacaomobile.pt/sincronizer/getUserOrder.php?order_id=".$orderId); 
+        // set url
+        curl_setopt($callRequest, CURLOPT_URL, "http://www.reparacaomobile.pt/sincronizer/getUserOrder.php?order_id=".$orderId);
 
-        //return the transfer as a string 
-        curl_setopt($callRequest, CURLOPT_RETURNTRANSFER, 1); 
+        //return the transfer as a string
+        curl_setopt($callRequest, CURLOPT_RETURNTRANSFER, 1);
 
-        // $output contains the output string 
-        $customer = curl_exec($callRequest); 
+        // $output contains the output string
+        $customer = curl_exec($callRequest);
 
-        // close curl resource to free up system resources 
-        curl_close($callRequest); 
-		
+        // close curl resource to free up system resources
+        curl_close($callRequest);
+
 		return json_decode($customer);
-		
+
 		/*//#1 - set Login info
 		$loginInfo = $_SESSION['loginInfo'];
 
-		//#2 - Build params 
+		//#2 - Build params
 		$params = array(
 			loginInfo=>$loginInfo,
-			order_id=>$orderId		
+			order_id=>$orderId
 		);
 
 		//#3 - Setup Connection SOAP
@@ -855,13 +951,13 @@
 
 		//#4 - Make the call
 		$customer = array($client->GetUserInfoFromOrderId($params));
-		
+
 		//#5 - Treat Result
 		$customer = $customer[0]->User;
-		
+
 		//#6 - Return Result
 		return $customer;*/
-	} 
+	}
 
 
 	//Call WSDL to get Products within order
@@ -869,11 +965,11 @@
 		//#1 - set Login info
 		$loginInfo = $_SESSION['loginInfo'];
 
-		//#2 - Build params 
+		//#2 - Build params
 		$params = array(
 			loginInfo=>$loginInfo,
 			order_id=>$orderId,
-			include_prices=>"Y"			
+			include_prices=>"Y"
 		);
 
 		//#3 - Setup Connection SOAP
@@ -881,31 +977,31 @@
 
 		//#4 - Make the call
 		$orderProducts = array($client->GetProductsFromOrderId($params));
-		
+
 
 		//#5 - Treat Result
 		$orderProducts = $orderProducts[0]->OrderItemInfo;
-		
+
 		if(is_object($orderProducts)){
 			$orderProducts= array($orderProducts);
 		}
 
 		//#6 - Return Result
 		return $orderProducts;
-	} 
-	
+	}
+
 	//Call WSDL to get a single Order by Id
 	function WSDL_GetOrder($orderId){
 		//#1 - set Login info
 		$loginInfo = $_SESSION['loginInfo'];
 
-		//#2 - Build params 
+		//#2 - Build params
 		$params = array(
 			loginInfo=>$loginInfo,
 			order_id=>$orderId,
 			order_number=>"",
 			limite_start=>"",
-			limite_end=>""		
+			limite_end=>""
 		);
 
 		//#3 - Setup Connection SOAP
@@ -913,59 +1009,59 @@
 
 		//#4 - Make the call
 		$order = array($client->GetOrder($params));
-		
+
 		//#5 - Treat Result
 		$order = $order[0];
-		
+
 		//#6 - Return Result
 		return $order;
-	} 	 
+	}
 
 	//Call WSDL to get Orders Between a month
 	function WSDL_GetOrderFromDate(){
 		//First day of month
 		$date_start = SYNC_FROM_DATE;
-		
+
 		//To the present
 		$date_end= SYNC_TO_DATE;
-		
+
 		//#1 - set Login info
 		$loginInfo = $_SESSION['loginInfo'];
-		
-		//#2 - Build params 
+
+		//#2 - Build params
 		$params = array(
 			loginInfo=>$loginInfo,
 			order_status=>"",
 			date_start=>$date_start,
-			date_end=>$date_end			
+			date_end=>$date_end
 		);
-		
+
 		//#3 - Setup Connection SOAP
 		$client = new SoapClient(SOAP_BASE . "/VM_OrderWSDL.php");
-		
+
 		//#4 - Make the call
 		$orderArray = array($client->GetOrderFromDate($params));
-		
+
 		//#5 - Treat Result
 		$orderArray = $orderArray[0]->Order;
 
 		if(is_object($orderArray)){
 			$orderArray= array($orderArray);
 		}
-		
+
 		//#6 - Return Result
 		return $orderArray;
-		
+
 	}
 
 
 	//Call WSDL to get Products From Category
 	function WSDL_GetProductsFromCategory($category){
-		
+
 		//#1 - set Login info
 		$loginInfo = $_SESSION['loginInfo'];
-		
-		//#2 - Build params 
+
+		//#2 - Build params
 		$params = array(
 			loginInfo=>$loginInfo,
 			catgory_id=>$category,
@@ -975,35 +1071,35 @@
 			limite_start=>"",
 			limite_end=>""
 		);
-		
+
 		//#3 - Setup Connection SOAP
 		$client = new SoapClient(SOAP_BASE . "/VM_ProductWSDL.php");
-		
+
 		//#4 - Make the call
 		$productarray = array($client->GetProductsFromCategory($params));
-		
+
 		//#5 - Treat Result
 		$productarray = $productarray[0]->Product;
-		
+
 		//#6 - Return Result
 		return $productarray;
-		
+
 	}
-	
-	
+
+
 	/******************************
 	 *** DriveFX Call Functions ***
-	 ******************************/	
-	//Call Drive to get Image Data, and save it 
+	 ******************************/
+	//Call Drive to get Image Data, and save it
 	function DRIVE_getImageBytes($imageStamp, $ref){
 		//#1 - Build image Url
 		$imageUrl = backendImgUrl . "/cimagem.aspx?iflstamp=" . $imageStamp ;
 
-		// create curl resource 
+		// create curl resource
         global $ch;
 
         $imageCH = curl_copy_handle($ch);
-        //return the transfer as a string 
+        //return the transfer as a string
         $timeout = 0;
 		curl_setopt ($imageCH, CURLOPT_URL, $imageUrl);
 		curl_setopt ($imageCH, CURLOPT_CONNECTTIMEOUT, $timeout);
@@ -1021,10 +1117,10 @@
 		}
 		$saveTo = '../img/' . $ref . '.jpg';
 		file_put_contents($saveTo, $image);
-     
+
 		//$saveThumb = '../images/stories/virtuemart/product/' . $ref . '.jpg';
 		//file_put_contents($saveThumb, $image);
-		
+
 
 		return 'img/' . $ref . '.jpg';
 	}
@@ -1032,9 +1128,26 @@
 	//Call Drive to return a list of products not synced
 	function DRIVE_getProductNotSynced(){
 		global $ch;
-		 
+
 		// #1 - get Order By Id
     	$url = backendUrl . '/SearchWS/QueryAsEntities';
+     /* $params =  array('itemQuery' => '{
+    									  "entityName": "St",
+    									  "distinct": false,
+    									  "lazyLoaded": false,
+    									  "SelectItems": [],
+    									  "filterItems": [
+    									    {
+    									      "filterItem": "ref",
+    									      "valueItem": "1893",
+    									      "comparison": 0,
+    									      "groupItem": 1
+    									    }
+    									  ],
+    									  "orderByItems": [],
+    									  "JoinEntities": [],
+    									  "groupByItems": []
+    									}');*/
     	$params =  array('itemQuery' => '{
     									  "entityName": "St",
     									  "distinct": false,
@@ -1052,47 +1165,47 @@
     									  "JoinEntities": [],
     									  "groupByItems": []
     									}');
-    									
+
     	$response=DRIVE_Request($ch, $url, $params);
-    	
+
     	if(empty($response)){
     		return false;
     	} else if(count($response['result']) == 0 ){
     		return null;
     	}
-        
-        return $response['result'];		 
-		 
+
+        return $response['result'];
+
 	}
 
 
 	//Get New Instance (Entity= Cl , Bo, St)
 	function DRIVE_getNewInstance($entity, $ndos){
-	   
+
 		global $ch;
-		   
+
 		$url = backendUrl . "/".$entity."WS/getNewInstance";
 		$params =  array('ndos' => $ndos);
 
 		$response=DRIVE_Request($ch, $url, $params);
-		
+
 		if(empty($response)){
 			return null;
 		}
 		if(isset($response['messages'][0]['messageCodeLocale'])){
 			return null;
 		}
-		
-		
-		return $response['result'][0];	
-		
+
+
+		return $response['result'][0];
+
 	}
 
 	//Sync entity Instance (Entity= Cl , Bo, St)
    	function DRIVE_actEntiy($entity, $itemVO){
-	   
+
 	    global $ch;
-	   	   
+
 		$url = backendUrl . "/".$entity."WS/actEntity";
 		$params =  array('entity' => json_encode($itemVO),
 						 'code' => 0,
@@ -1100,8 +1213,8 @@
 					);
 
 		$response=DRIVE_Request($ch, $url, $params);
-	
-		//echo json_encode( $response ); 
+
+		//echo json_encode( $response );
 		if(empty($response)){
 			return null;
 		}
@@ -1110,25 +1223,25 @@
 			logData($msg);
 			return null;
 		}
-		
-		
-		return $response['result'][0];	
-	   
+
+
+		return $response['result'][0];
+
    	}
 
 	//save Instance (Entity= Cl , Bo, St)
    	function DRIVE_saveInstance($entity, $itemVO){
-		
+
 		global $ch;
-	   	   
+
 		$url = backendUrl .  "/".$entity."WS/Save";
 		$params =  array('itemVO' => json_encode($itemVO),
 						 'runWarningRules' => 'false'
 					);
 
 		$response=DRIVE_Request($ch, $url, $params);
-	
-		//echo json_encode( $response ); 
+
+		//echo json_encode( $response );
 		if(empty($response)){
 			$msg = "Empty save";
 			logData($msg);
@@ -1139,17 +1252,17 @@
 			logData($msg);
 			return null;
 		}
-		
-		
-		return $response['result'][0];	
-		
+
+
+		return $response['result'][0];
+
   	 }
 
 
 	//Call Drive to return a product by ref(sku) or Id
 	function DRIVE_getProductByRefOrId($ref, $id){
 		global $ch;
-		 
+
 		// #1 - get Order By Id
     	$url = backendUrl . '/SearchWS/QueryAsEntities';
     	$params =  array('itemQuery' => '{
@@ -1175,27 +1288,27 @@
     									  "JoinEntities": [],
     									  "groupByItems": []
     									}');
-    									
+
     	$response=DRIVE_Request($ch, $url, $params);
-    	
+
     	if(empty($response)){
     		return false;
     	} else if(count($response['result']) == 0 ){
     		return null;
     	}
-        
-        return $response['result'][0];		 
-		 
+
+        return $response['result'][0];
+
 	}
-	 
+
 	//Call Drive to return an order by observation Id
 	function DRIVE_getCustomerByNcontOrId($ncont, $id){
 		global $ch;
-		
+
 		// #1 - get Order By Id
     	$url = backendUrl . '/SearchWS/QueryAsEntities';
 
-		
+
 		$params =  array('itemQuery' => '{
 									  "entityName": "Cl",
 									  "distinct": false,
@@ -1213,28 +1326,28 @@
 									  "JoinEntities": [],
 									  "groupByItems": []
 									}');
-	
 
-		
-    	
-    									
+
+
+
+
     	$response=DRIVE_Request($ch, $url, $params);
-    	
+
     	if(empty($response)){
     		return false;
     	} else if(count($response['result']) == 0 ){
     		return null;
     	}
-        
-        return $response['result'][0];		 
-		 
+
+        return $response['result'][0];
+
 	}
-	  	 
+
 	//Call Drive to return an order by observation Id
 	function DRIVE_getOrderById($obsId){
 
 		global $ch;
-		 
+
 		// #1 - get Order By Id
 		$url = backendUrl . '/SearchWS/QueryAsEntities';
 		$params =  array('itemQuery' => '{
@@ -1254,7 +1367,7 @@
 										  "JoinEntities": [],
 										  "groupByItems": []
 										}');
-										
+
 		$response=DRIVE_Request($ch, $url, $params);
 
 		if(empty($response)){
@@ -1264,24 +1377,24 @@
 		}
 
 		return $response['result'][0];
-		 
-		 
+
+
 	 }
-	 
-	 
-	 //Call Login 
+
+
+	 //Call Login
 	 function DRIVE_userLogin(){
 		global $ch;
-		
+
 		$url = backendUrl . '/UserLoginWS/userLoginCompany';
-		
+
     	// Create map with request parameters
     	$params = $_SESSION['driveCredentials'];
-    	
+
     	// Build Http query using params
     	$query = http_build_query ($params);
     	//initial request with login data
-    	
+
     	//URL to save cookie "ASP.NET_SessionId"
     	curl_setopt($ch, CURLOPT_URL, $url);
     	curl_setopt($ch, CURLOPT_USERAGENT,'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Ubuntu Chromium/32.0.1700.107 Chrome/32.0.1700.107 Safari/537.36');
@@ -1294,7 +1407,7 @@
     	curl_setopt($ch, CURLOPT_COOKIEJAR, '');
     	curl_setopt($ch, CURLOPT_COOKIEFILE, '');
     	$response = curl_exec($ch);
-    	
+
     	// send response as JSON
     	$response = json_decode($response, true);
     	if (curl_error($ch)) {
@@ -1308,8 +1421,8 @@
     	}
     	return true;
 	 }
-	
-	//Generic function to get all records from an entity (used for Country, Tax and Isemption) 
+
+	//Generic function to get all records from an entity (used for Country, Tax and Isemption)
 	function DRIVE_getAllRecordList($entityName){
 
 		global $ch;
@@ -1328,22 +1441,22 @@
 		$response=DRIVE_Request($ch, $url,$params);
 
 		if($response == null){
-			return $response;			
+			return $response;
 		}
 
 		return $response['result'];
 
 	}
 
-	// Drive Generic call 
+	// Drive Generic call
 	function DRIVE_Request($ch, $url,$params){
-		
+
     	// Build Http query using params
     	$query = http_build_query ($params);
     	curl_setopt($ch, CURLOPT_URL, $url);
     	curl_setopt($ch, CURLOPT_POST, false);
     	curl_setopt($ch, CURLOPT_POSTFIELDS, $params);
-	
+
 		curl_setopt($ch, CURLOPT_BINARYTRANSFER, false);
 
 
@@ -1351,12 +1464,12 @@
     	// send response as JSON
     	return json_decode($response, true);
     }
-	 
-	 
+
+
 
 	/* Log Errors and data to Log */
 	function logData($data){
-		
+
 		$file = 'log.txt';
 		// Open the file to get existing content
 		$current = file_get_contents($file);
@@ -1364,9 +1477,9 @@
 		$current .=  "\n\n----------------------" . date("Y-m-d H:i:s") . "----------------------\n" . $data ;
 		// Write the contents back to the file
 		file_put_contents($file, $current);
-		
-	} 
-	 
+
+	}
+
 	/*Not in use*/
 	function storeImage(){
 		/*$data = 'iVBORw0KGgoAAAANSUhEUgAAABwAAAASCAMAAAB/2U7WAAAABl'
@@ -1386,19 +1499,14 @@
 		}
 
 		$file = '123.jpg';
-			
+
 			file_put_contents($file, $data);
 		exit(1);
 			*/
-		
+
 	}
-	 
-	 
-	
-?>
-	 
-	 
-	 
-	 
-	
+
+
+
+
 ?>
