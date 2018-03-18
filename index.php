@@ -1,10 +1,15 @@
 <?php
+
+
+
+
 	error_reporting(E_ERROR | E_PARSE);
 	//Define SOAP Settings
 	define("SOAP_BASE", "http://www.reparacaomobile.pt/administrator/components/com_vm_soa/services");
-	define("SYNC_FROM_DATE", date("Y-9-28 00:00:s"));//day 1 of the month date("Y-m-1 00:00:00")
-	define("SYNC_TO_DATE", date("Y-9-28 23:30:s")); //today date("Y-m-d H:i:s")
-		
+	define("SYNC_FROM_DATE", date("2017-12-25 00:00:s")); // date("Y-m-1 00:00:00")
+
+	define("SYNC_TO_DATE", date("Y-m-d H:i:s"));
+
 	//Build a Session Credentials, to use in all requests
 	$_SESSION['loginInfo'] = array(
 		login=>"carlossantos",
@@ -12,21 +17,21 @@
 		isEncrypted=>"N",
 		lang=>"PT"
 	);
-	
-	
+
+
 	//Define DriveFX settings
 	define("orderNdoc", 1);
-	define("backendUrl", "https://sis07.drivefx.net/2172d06c/PHCWS/REST");//TODO MUDAR AQUI 
-	define("backendImgUrl", "https://sis07.drivefx.net/2172d06c/PHCWS");//TODO MUDAR AQUI 
+	define("backendUrl", "https://sis07.drivefx.net/AC167AE5/PHCWS/REST");//TODO MUDAR AQUI
+	define("backendImgUrl", "https://sis07.drivefx.net/AC167AE5/PHCWS");//TODO MUDAR AQUI
 	$_SESSION['driveCredentials'] = array(
-		userCode=>"admin",
+		userCode=>"suporte",
 		password=>"12345678",
 		applicationType=>"HYU45F-FKEIDD-K93DUJ-ALRNJE",
 		company=>""
 	);
-	
-		
-		//set as global Call HEADER for Drive fX
+
+
+	//set as global Call HEADER for Drive fX
 	$ch = curl_init();
 
 	//WSDL Reference : http://www.virtuemart-datamanager.com/soap/VM2_SOAP_DOC.html#WS-VM_Product
@@ -57,9 +62,10 @@
   	}
 
   	//#Sync Orders from Drive to Store
-    //if(!(isset($_GET["id"]))){
-	//syncProductsToStore();
-	//}
+  //  if(!(isset($_GET["id"]))){
+syncProductsToStore();
+  exit(1);
+//}
 	//exit(1); //Remover antes de sincronizar o resto
 
   	/* Read from GET to check if it is to
@@ -95,7 +101,9 @@
 
 		//#2 - For each order check if it is already sync @Drive
 		foreach ($orderArray as $order) {
-			//#3 - Get order @Drive by BO.obs = order_id
+
+      if($order->order_status=="C"){
+    	//#3 - Get order @Drive by BO.obs = order_id
 			if(DRIVE_getOrderById($order->id) != null){
 				$msg = "Order with Id=".$order->id." already synched.<br><br>";
 				echo $msg;
@@ -152,6 +160,7 @@
 			echo "<br><br><br>";
 
 		}
+  }
 	}
 
 	//#A.2 - Secondary, sync a single order (use #A or #A.2, exclusivity)
@@ -159,6 +168,8 @@
 
 		//#1 - Get order by Id from store
 		$order = WSDL_GetOrder($orderId);
+    print_r($order);
+    exit(1);
 		if (empty($order)){
 			$msg =  "Error on getting Order by id = ".$orderId." <br>";
 			logData($msg);
@@ -276,7 +287,7 @@
 				//Create it in store
 				//#3 - Call WSDL (directly url of our php in reparacaomobile server) - return = {product_id, product_sku}
 				$productInStore = WSDL_AddProduct($driveProduct);
-
+print_r($productInStore);
 				if(isset($productInStore->error)){
 					$msg = "Error on synchronizing ref: ".$driveProduct['ref']."...<br>";
 					echo $msg;
@@ -516,7 +527,7 @@
 
 
 
-  	function processCustomer($customer){
+  function processCustomer($customer){
   		//#0 - check if NIF is fulfilled
   		if($customer->nif == '' || $customer->nif == null){
 
@@ -678,22 +689,22 @@
 
 
 
-		if($driveProduct['epv2'] > 0 && is_array($storeProduct->prices->ProductPrice)){
-			//epv2 ta na posicao 1
-			if(is_array($storeProduct->prices->ProductPrice)){
-			      $storeProduct->prices->ProductPrice[1]->product_price = $driveProduct['epv2'];
-			        $storeProduct->prices->ProductPrice[1]->shopper_group_id=3;
-			         $storeProduct->prices->ProductPrice[1]->product_tax_id=1;
-			           $storeProduct->prices->ProductPrice[1]->product_discount_id=-1;
-			}else {
-			    $storeProduct->prices->ProductPrice->product_price = $driveProduct['epv2'];
-			      $storeProduct->prices->ProductPrice->shopper_group_id=3;
-			       $storeProduct->prices->ProductPrice[1]->product_tax_id=1;
-			           $storeProduct->prices->ProductPrice[1]->product_discount_id=-1;
-			}
+			if($driveProduct['epv2'] > 0 && is_array($storeProduct->prices->ProductPrice)){
+				//epv2 ta na posicao 1
+	if(is_array($storeProduct->prices->ProductPrice)){
+	      $storeProduct->prices->ProductPrice[1]->product_price = $driveProduct['epv2'];
+	        $storeProduct->prices->ProductPrice[1]->shopper_group_id=3;
+	         $storeProduct->prices->ProductPrice[1]->product_tax_id=1;
+	           $storeProduct->prices->ProductPrice[1]->product_discount_id=-1;
+	}else {
+	    $storeProduct->prices->ProductPrice->product_price = $driveProduct['epv2'];
+	      $storeProduct->prices->ProductPrice->shopper_group_id=3;
+	       $storeProduct->prices->ProductPrice[1]->product_tax_id=1;
+	           $storeProduct->prices->ProductPrice[1]->product_discount_id=-1;
+	}
 
-		}
-		//epv2 ta na posicao 0
+			}
+			//epv2 ta na posicao 0
 
 	  if(is_array($storeProduct->prices->ProductPrice)){
 			$storeProduct->prices->ProductPrice[0]->product_price = $driveProduct['epv1'];
@@ -807,39 +818,40 @@
 	}
 
 
-	//Call WSDL to add a new instance of Products
-	function WSDL_AddProduct($product){
-		//http://www.reparacaomobile.pt/sincronizer/insertProduct.php?name=teste&sku=123456789&desc=grande%20desc&img=hjsuuhs.pt&price=10.99
-		$picLocation = DRIVE_getImageBytes($product['imagestamp'], $product['ref']);
+  	//Call WSDL to add a new instance of Products
+  	function WSDL_AddProduct($product){
+  		//http://www.reparacaomobile.pt/sincronizer/insertProduct.php?name=teste&sku=123456789&desc=grande%20desc&img=hjsuuhs.pt&price=10.99
+  		$picLocation = DRIVE_getImageBytes($product['imagestamp'], $product['ref']);
 
-		//should be img/ref.jpg
-		$imageUrl = $picLocation;
+  		//should be img/ref.jpg
+  		$imageUrl = $picLocation;
 
-		//Use desctec in name when exists
-		$description = $product['design'];
-		if($product['desctec'] != ''){
-			$description = $product['desctec'];
-		}
+  		//Use desctec in name when exists
+  		$description = $product['design'];
+  		//if($product['desctec'] != ''){
+  			//$description = $product['desctec'];
+  		//}
 
-		$productQueryString = "?name=".urlencode($description)."&sku=".urlencode($product['ref'])."&desc=".urlencode($product['desctec'])."&img=".$imageUrl."&price=".$product['epv1']."&price2=".$product['epv2']."";
+  		$productQueryString = "?name=".urlencode($description)."&sku=".urlencode($product['ref'])."&desc=".urlencode($product['desctec'])."&img=".$imageUrl."&price=".$product['epv1']."&price2=".$product['epv2']."";
 
-		$callRequest = curl_init();
+  		$callRequest = curl_init();
 
 
-        // set url
-        curl_setopt($callRequest, CURLOPT_URL, "http://www.reparacaomobile.pt/sincronizer/insertProduct.php".$productQueryString);
+          // set url
+          curl_setopt($callRequest, CURLOPT_URL, "http://www.reparacaomobile.pt/sincronizer/insertProduct.php".$productQueryString);
 
-        //return the transfer as a string
-        curl_setopt($callRequest, CURLOPT_RETURNTRANSFER, 1);
+          //return the transfer as a string
+          curl_setopt($callRequest, CURLOPT_RETURNTRANSFER, 1);
 
-        // $output contains the output string
-        $insertedProduct = curl_exec($callRequest);
+          // $output contains the output string
+          $insertedProduct = curl_exec($callRequest);
 
-        // close curl resource to free up system resources
-        curl_close($callRequest);
+          // close curl resource to free up system resources
+          curl_close($callRequest);
 
-		return json_decode($insertedProduct);
-	}
+  		return json_decode($insertedProduct);
+  	}
+
 
 	//Call WSDL (fake call) to get a new instance of Products
 	function WSDL_GetNewInstanceProduct(){
@@ -1031,7 +1043,7 @@
 		//#2 - Build params
 		$params = array(
 			loginInfo=>$loginInfo,
-			order_status=>"",
+			order_status=>"C",
 			date_start=>$date_start,
 			date_end=>$date_end
 		);
@@ -1098,25 +1110,25 @@
 		// create curl resource
         global $ch;
 
-        $imageCH = curl_copy_handle($ch);
         //return the transfer as a string
         $timeout = 0;
-		curl_setopt ($imageCH, CURLOPT_URL, $imageUrl);
-		curl_setopt ($imageCH, CURLOPT_CONNECTTIMEOUT, $timeout);
+		curl_setopt ($ch, CURLOPT_URL, $imageUrl);
+		curl_setopt ($ch, CURLOPT_CONNECTTIMEOUT, $timeout);
 
 		// Getting binary data
-		curl_setopt($imageCH, CURLOPT_RETURNTRANSFER, 1);
-		curl_setopt($imageCH, CURLOPT_BINARYTRANSFER, 1);
+		curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+		curl_setopt($ch, CURLOPT_BINARYTRANSFER, true);
 
-		$image = curl_exec($imageCH);
-		curl_close($imageCH);
-
+		$image = curl_exec($ch);
+	
+		curl_setopt($ch, CURLOPT_BINARYTRANSFER, 0);
 		// output to browser
 		if (!file_exists('img/')) {
 		    mkdir('../img/', 0777, true);
 		}
 		$saveTo = '../img/' . $ref . '.jpg';
 		file_put_contents($saveTo, $image);
+
 
 		//$saveThumb = '../images/stories/virtuemart/product/' . $ref . '.jpg';
 		//file_put_contents($saveThumb, $image);
@@ -1131,40 +1143,27 @@
 
 		// #1 - get Order By Id
     	$url = backendUrl . '/SearchWS/QueryAsEntities';
-     /* $params =  array('itemQuery' => '{
+     $params =  array('itemQuery' => '{
     									  "entityName": "St",
     									  "distinct": false,
     									  "lazyLoaded": false,
     									  "SelectItems": [],
     									  "filterItems": [
-    									    {
-    									      "filterItem": "ref",
-    									      "valueItem": "1893",
-    									      "comparison": 0,
-    									      "groupItem": 1
-    									    }
-    									  ],
-    									  "orderByItems": [],
-    									  "JoinEntities": [],
-    									  "groupByItems": []
-    									}');*/
-    	$params =  array('itemQuery' => '{
-    									  "entityName": "St",
-    									  "distinct": false,
-    									  "lazyLoaded": false,
-    									  "SelectItems": [],
-    									  "filterItems": [
-    									    {
-    									      "filterItem": "obs",
-    									      "valueItem": "",
-    									      "comparison": 0,
-    									      "groupItem": 1
-    									    }
     									  ],
     									  "orderByItems": [],
     									  "JoinEntities": [],
     									  "groupByItems": []
     									}');
+    	/*$params =  array('itemQuery' => '{
+    									  "entityName": "St",
+    									  "distinct": false,
+    									  "lazyLoaded": false,
+    									  "SelectItems": [],
+    									  "filterItems": [ ],
+    									  "orderByItems": [],
+    									  "JoinEntities": [],
+    									  "groupByItems": []
+    									}');*/
 
     	$response=DRIVE_Request($ch, $url, $params);
 
@@ -1508,5 +1507,11 @@
 
 
 
-
 ?>
+
+
+
+
+
+
+
